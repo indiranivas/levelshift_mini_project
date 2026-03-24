@@ -1,7 +1,7 @@
 from data_processing import preprocess_data
 
 # Path to the dataset
-dataset_path = r"c:\Users\indiranivas_s\OneDrive - LevelShift\Documents\mini_project\dataset\Resume\Resume.csv"
+dataset_path = "dataset\Resume\Resume.csv"
 
 # Preprocess the data
 df, label_encoder = preprocess_data(dataset_path)
