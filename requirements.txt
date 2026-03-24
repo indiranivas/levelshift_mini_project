@@ -1,0 +1,15 @@
+pandas
+numpy
+scikit-learn
+nltk
+spacy
+matplotlib
+seaborn
+flask
+transformers
+torch
+faiss-cpu
+chromadb
+joblib
+openai
+python-dotenv
