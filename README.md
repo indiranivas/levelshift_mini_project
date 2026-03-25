@@ -316,4 +316,4 @@ MIT License - See LICENSE file for details
 
 ## 📧 Support
 
-For issues or questions, please contact indiranivas1234@gmial.com
+For issues or questions, please contact indiranivas1234@gmail.com
