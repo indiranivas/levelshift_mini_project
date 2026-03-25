@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>HR Policy Chatbot - AI Smart Hiring Platform</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        
+        /* Markdown rendering inside chat bubbles */
+        .prose ul { list-style-type: disc; padding-left: 20px; }
+        .prose ol { list-style-type: decimal; padding-left: 20px; }
+        .prose p { margin-bottom: 8px; }
+        .prose p:last-child { margin-bottom: 0; }
+        .prose strong { font-weight: 700; color: inherit; }
+        
+        .chat-container { scroll-behavior: smooth; }
+        .typing-indicator span {
+            animation: blink 1.4s infinite both;
+            height: 6px; width: 6px; background-color: currentColor; border-radius: 50%; display: inline-block; margin: 0 2px;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0% { opacity: 0.2; transform: scale(0.8); } 20% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.2; transform: scale(0.8); } }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col h-screen overflow-hidden">
+
+<!-- Sidebar -->
+<nav class="fixed left-0 top-0 h-full w-64 bg-slate-100/50 dark:bg-slate-900/50 flex flex-col p-4 z-50">
+    <div class="mb-8 px-2 flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+            <span class="material-symbols-outlined">psychology</span>
+        </div>
+        <div>
+            <h2 class="text-lg font-black text-blue-800 dark:text-blue-300">Recruiter Portal</h2>
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Automated Screening</p>
+        </div>
+    </div>
+    <div class="flex-1 space-y-1">
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="text-sm font-semibold">Dashboard</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/candidates">
+            <span class="material-symbols-outlined">group</span>
+            <span class="text-sm font-semibold">All Candidates</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/upload">
+            <span class="material-symbols-outlined">cloud_upload</span>
+            <span class="text-sm font-semibold">Upload Resume</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/analytics">
+            <span class="material-symbols-outlined">analytics</span>
+            <span class="text-sm font-semibold">Analytics</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 rounded-lg shadow-sm font-bold" href="/chatbot">
+            <span class="material-symbols-outlined">forum</span>
+            <span class="text-sm font-semibold">HR Policy Chatbot</span>
+        </a>
+    </div>
+</nav>
+
+<!-- Main Chat Interface -->
+<main class="ml-64 flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950">
+    <!-- Header -->
+    <header class="flex-shrink-0 flex items-center justify-between px-8 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm z-10">
+        <div>
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-blue-600">smart_toy</span>
+                TalentAI Support Assistant
+            </h1>
+            <p class="text-xs text-slate-500 font-medium mt-1">Ask me about hiring policies, notice periods, or recruitment guidelines.</p>
+        </div>
+    </header>
+
+    <!-- Chat Messages -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-8 chat-container space-y-6">
+        <!-- Initial Greeting -->
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex justify-center items-center text-blue-600 shrink-0 shadow-sm">
+                <span class="material-symbols-outlined">smart_toy</span>
+            </div>
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-slate-700">
+                <p>Hello! I'm the AI Assistant for the Recruiter Portal.</p>
+                <p class="mt-2">You can ask me questions about hiring policies OR our active candidate database:</p>
+                <ul class="list-disc pl-5 mt-2 space-y-1 text-slate-500 dark:text-slate-400">
+                    <li>"Who are the top shortlisted candidates right now?"</li>
+                    <li>"Which candidates have Python and AWS skills?"</li>
+                    <li>"What is the standard notice period requirement?"</li>
+                    <li>"Do we support visa sponsorship for engineering roles?"</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Input -->
+    <div class="flex-shrink-0 p-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+        <div class="max-w-4xl mx-auto relative flex items-center">
+            <input type="text" id="chat-input" class="w-full pl-6 pr-16 py-4 bg-slate-100 dark:bg-slate-800 border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-500 rounded-full shadow-inner text-sm transition-all outline-none" placeholder="Type your HR question here..." onkeypress="handleEnter(event)">
+            <button onclick="sendMessage()" id="send-btn" class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-blue-600 text-white rounded-full flex justify-center items-center hover:bg-blue-700 transition-colors shadow-md disabled:bg-slate-400">
+                <span class="material-symbols-outlined text-xl">send</span>
+            </button>
+        </div>
+    </div>
+</main>
+
+<script>
+    // Context to supply to Gemini for domain-specific answers
+    const HIRING_CONTEXT = `
+TalentAI Solutions Hiring Guidelines (2024 V2.1)
+- Standard notice period is 30 days for junior/mid roles, 60 days for leadership.
+- Remote work is permitted for software engineers up to 3 days a week.
+- Visa sponsorship is only available for Senior Engineers (Level 4+) and Data Scientists.
+- Technical interviews must include at least one system design question for roles requiring 5+ years experience.
+- The standard probation period for new hires is 3 months.
+- Candidates needing relocation are eligible for up to a $5000 signing bonus (requires Director approval).
+`;
+
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendUserMessage(text) {
+        const msgHtml = `
+            <div class="flex items-start gap-4 flex-row-reverse">
+                <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex justify-center items-center text-slate-600 dark:text-slate-300 shrink-0 shadow-sm">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+                <div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-sm shadow-sm max-w-[80%] text-sm font-medium">
+                    ${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+                </div>
+            </div>`;
+        chatMessages.insertAdjacentHTML('beforeend', msgHtml);
+        scrollToBottom();
+    }
+
+    function appendBotMessageStart() {
+        const id = 'msg-' + Date.now();
+        const msgHtml = `
+            <div class="flex items-start gap-4" id="${id}-container">
+                <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex justify-center items-center text-blue-600 shrink-0 shadow-sm">
+                    <span class="material-symbols-outlined">smart_toy</span>
+                </div>
+                <div id="${id}" class="bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-slate-700 prose dark:prose-invert">
+                    <div class="typing-indicator text-blue-600 items-center flex h-5">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>`;
+        chatMessages.insertAdjacentHTML('beforeend', msgHtml);
+        scrollToBottom();
+        return id;
+    }
+
+    function updateBotMessage(id, markdownText) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerHTML = marked.parse(markdownText);
+            scrollToBottom();
+        }
+    }
+
+    function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        
+        chatInput.value = '';
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        
+        appendUserMessage(text);
+        const botMsgId = appendBotMessageStart();
+
+        fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                question: text,
+                context: HIRING_CONTEXT
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            chatInput.focus();
+            
+            if (data.success) {
+                updateBotMessage(botMsgId, data.answer);
+            } else {
+                updateBotMessage(botMsgId, `*Error: ${data.error}*`);
+            }
+        })
+        .catch(e => {
+            console.error(e);
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            updateBotMessage(botMsgId, "*Network error connecting to AI service.*");
+        });
+    }
+</script>
+</body>
+</html>
