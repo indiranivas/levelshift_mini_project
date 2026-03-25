@@ -1,6 +1,12 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+import sys
+import os
+
+# Add the project root to the path to import nlp module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from nlp.nlp_pipeline import extract_skills, extract_experience, count_skills
 
 def load_resume_data(filepath):
     """
@@ -59,6 +65,21 @@ def extract_basic_features(df):
     df['word_count'] = df['Resume_str'].apply(lambda x: len(x.split()))
     return df
 
+def extract_advanced_features(df):
+    """
+    Extract advanced NLP features: skills, experience, etc.
+    """
+    print("[..] Extracting skills ... ", end="", flush=True)
+    df['skills'] = df['Resume_str'].apply(extract_skills)
+    df['skill_count'] = df['Resume_str'].apply(count_skills)
+    print("done")
+
+    print("[..] Extracting experience ... ", end="", flush=True)
+    df['experience_years'] = df['Resume_str'].apply(extract_experience)
+    print("done")
+
+    return df
+
 def scale_numerical_features(df, numerical_cols):
     """
     Scale numerical features.
@@ -83,6 +104,7 @@ def preprocess_data(filepath):
 
     # Extract features
     df = extract_basic_features(df)
+    df = extract_advanced_features(df)
 
     # Encode categorical
     df, label_encoder = encode_categorical_features(df)

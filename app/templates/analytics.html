@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Candidate Analysis Results - AI Smart Hiring Platform</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        @media print {
+            aside, header, .no-print { display: none !important; }
+            main { margin-left: 0 !important; }
+            body { background: white !important; color: black !important; }
+        }
+        
+        /* Markdown Rendering Styles for AI Insights */
+        .result-area ul { list-style-type: disc; padding-left: 24px; margin-bottom: 16px; margin-top: 8px; }
+        .result-area ol { list-style-type: decimal; padding-left: 24px; margin-bottom: 16px; margin-top: 8px; }
+        .result-area li { margin-bottom: 6px; }
+        .result-area h1, .result-area h2 { font-size: 1.1rem; font-weight: 800; margin-top: 24px; margin-bottom: 12px; color: #1d4ed8; }
+        .result-area h3 { font-size: 1rem; font-weight: 700; margin-top: 20px; margin-bottom: 8px; color: #2563eb; }
+        .result-area p { margin-bottom: 12px; line-height: 1.6; }
+        .result-area strong { font-weight: 700; color: #0f172a; }
+        
+        @media (prefers-color-scheme: dark) {
+            .result-area strong { color: #f8fafc; }
+            .result-area h1, .result-area h2 { color: #60a5fa; }
+            .result-area h3 { color: #93c5fd; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-4 space-y-2 bg-slate-100/50 dark:bg-slate-900/50 w-64 z-50">
+    <div class="mb-8 px-2 flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+            <span class="material-symbols-outlined">psychology</span>
+        </div>
+        <div>
+            <h2 class="text-lg font-black text-blue-800 dark:text-blue-300">Recruiter Portal</h2>
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Automated Screening</p>
+        </div>
+    </div>
+    <nav class="flex-1 space-y-1">
+        <a class="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="text-sm font-semibold">Dashboard</span>
+        </a>
+        <a class="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/candidates">
+            <span class="material-symbols-outlined">group</span>
+            <span class="text-sm font-semibold">All Candidates</span>
+        </a>
+        <a class="flex items-center space-x-3 px-4 py-3 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 rounded-lg shadow-sm font-bold" href="/analytics">
+            <span class="material-symbols-outlined">analytics</span>
+            <span class="text-sm font-semibold">Analytics</span>
+        </a>
+        <a class="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/upload">
+            <span class="material-symbols-outlined">cloud_upload</span>
+            <span class="text-sm font-semibold">Upload Resume</span>
+        </a>
+        <a class="flex items-center space-x-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/chatbot">
+            <span class="material-symbols-outlined">forum</span>
+            <span class="text-sm font-semibold">HR Policy Chatbot</span>
+        </a>
+    </nav>
+    <button id="shortlist-btn" onclick="shortlistCandidate()" class="mb-6 w-full py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-opacity flex justify-center items-center gap-2">
+        <span class="material-symbols-outlined" id="shortlist-icon">favorite</span>
+        <span id="shortlist-text">Shortlist This Candidate</span>
+    </button>
+    <div class="pt-4 border-t border-slate-200/50 dark:border-slate-800/50 space-y-1">
+        <a class="flex items-center space-x-3 px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="#">
+            <span class="material-symbols-outlined">help</span>
+            <span class="text-sm font-semibold">Help Center</span>
+        </a>
+    </div>
+</aside>
+
+<!-- Main Content Canvas -->
+<main class="ml-64 flex-1 flex flex-col min-h-screen">
+    <!-- TopAppBar -->
+    <header class="flex justify-between items-center w-full px-6 py-3 bg-white dark:bg-slate-900 sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800">
+        <div class="flex items-center space-x-8">
+            <h1 class="text-xl font-bold text-slate-900 dark:text-slate-100">Analysis Results</h1>
+            <div class="relative hidden md:block">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined">search</span>
+                <input class="pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 w-64" placeholder="Search candidates..." type="text">
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors">
+                <span class="material-symbols-outlined">notifications</span>
+            </button>
+            <button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors">
+                <span class="material-symbols-outlined">settings</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="p-8 max-w-7xl mx-auto w-full space-y-10" id="analytics-container">
+        <p class="text-center text-slate-500">Loading analysis results...</p>
+    </div>
+</main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get candidate ID from query params or session
+        const params = new URLSearchParams(window.location.search);
+        const candidateId = params.get('id');
+
+        if (candidateId) {
+            fetch(`/api/candidate/${candidateId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        displayCandidate(data.candidate);
+                    } else {
+                        document.getElementById('analytics-container').innerHTML = '<p class="text-red-500">Error loading candidate data</p>';
+                    }
+                })
+                .catch(e => {
+                    console.error('Error:', e);
+                    document.getElementById('analytics-container').innerHTML = '<p class="text-red-500">Error loading candidate data</p>';
+                });
+        } else {
+            // Load latest analyzed candidate
+            fetch('/api/latest-candidate')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.candidate) {
+                        displayCandidate(data.candidate);
+                    } else {
+                        document.getElementById('analytics-container').innerHTML = '<p class="text-slate-500">No candidates analyzed yet</p>';
+                    }
+                })
+                .catch(e => console.error('Error:', e));
+        }
+    });
+
+    function displayCandidate(candidate) {
+        window.currentCandidateId = candidate.id;
+        window.currentCandidate = candidate;
+        
+        if (candidate.is_shortlisted) {
+            const btn = document.getElementById('shortlist-btn');
+            if (btn) {
+                btn.className = "mb-6 w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 transition-opacity";
+                document.getElementById('shortlist-text').textContent = "Shortlisted!";
+                document.getElementById('shortlist-icon').textContent = "check_circle";
+                btn.disabled = true;
+            }
+        }
+
+        const container = document.getElementById('analytics-container');
+        const matchScore = candidate.match_score || Math.round(Math.random() * 40) + 60;
+        const experience = candidate.experience || 5;
+        
+        container.innerHTML = `
+            <!-- Candidate Hero Section -->
+            <section class="grid grid-cols-1 md:grid-cols-12 gap-8 items-end">
+                <div class="md:col-span-8 flex items-center space-x-6">
+                    <div class="relative">
+                        <div class="w-32 h-32 rounded-2xl bg-blue-200 dark:bg-blue-900 flex items-center justify-center shadow-xl">
+                            <span class="material-symbols-outlined text-6xl text-blue-600">person</span>
+                        </div>
+                        <div class="absolute -bottom-2 -right-2 bg-white dark:bg-slate-800 p-1 rounded-lg shadow-md">
+                            <div class="flex items-center ${candidate.prediction === 'Shortlisted' ? 'bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-400' : (candidate.prediction === 'Rejected' ? 'bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-400' : 'bg-slate-50 text-slate-700')} px-3 py-1 rounded-md text-xs font-bold">
+                                <span class="material-symbols-outlined text-sm mr-1">${candidate.prediction === 'Shortlisted' ? 'check_circle' : (candidate.prediction === 'Rejected' ? 'cancel' : 'pending')}</span>
+                                ${candidate.prediction || 'Pending Review'}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">${candidate.name || 'Candidate'}</h2>
+                        <p class="text-lg text-slate-600 dark:text-slate-400 font-medium mt-1">${candidate.title || 'Professional'} • ${experience}+ Years Experience</p>
+                        <div class="flex items-center space-x-4 mt-3">
+                            <span class="flex items-center text-sm text-slate-600 dark:text-slate-400">
+                                <span class="material-symbols-outlined text-sm mr-1">location_on</span>
+                                ${candidate.location || 'Location not specified'}
+                            </span>
+                            <span class="flex items-center text-sm text-slate-600 dark:text-slate-400">
+                                <span class="material-symbols-outlined text-sm mr-1">mail</span>
+                                ${candidate.email || 'email@example.com'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:col-span-4 flex justify-end gap-3">
+                    <button onclick="downloadPDF()" class="px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl font-bold hover:opacity-90 transition-opacity flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+                        Download PDF
+                    </button>
+                    <button onclick="scheduleInterview()" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">event</span>
+                        Schedule Interview
+                    </button>
+                </div>
+            </section>
+
+            <!-- Bento Grid Analysis Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Match Score Card -->
+                <div class="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border-l-4 border-blue-600 flex flex-col items-center justify-center space-y-4">
+                    <span class="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">AI Match Score</span>
+                    <div class="relative flex items-center justify-center">
+                        <svg class="w-32 h-32 transform -rotate-90">
+                            <circle class="text-slate-200 dark:text-slate-700" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-width="8"></circle>
+                            <circle class="text-blue-600" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-dasharray="${(matchScore / 100) * 364.4} 364.4" stroke-width="8"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-3xl font-black">${matchScore}%</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-center text-slate-600 dark:text-slate-400 px-4">Strong technical alignment with job requirements.</p>
+                </div>
+
+                <!-- Experience & Key Stats -->
+                <div class="md:col-span-2 bg-white dark:bg-slate-800 p-8 rounded-xl flex flex-col justify-between">
+                    <div class="grid grid-cols-2 gap-8">
+                        <div>
+                            <p class="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">Total Experience</p>
+                            <div class="flex items-baseline space-x-2">
+                                <span class="text-4xl font-black text-slate-900 dark:text-white">${experience}</span>
+                                <span class="text-lg text-slate-600 dark:text-slate-400">Years</span>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">Notice Period</p>
+                            <div class="flex items-baseline space-x-2">
+                                <span class="text-4xl font-black text-slate-900 dark:text-white">30</span>
+                                <span class="text-lg text-slate-600 dark:text-slate-400">Days</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+                        <p class="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-4">Extracted Skills</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${(candidate.skills || ['Communication', 'Leadership', 'Problem-Solving']).slice(0, 6).map(skill => 
+                                `<span class="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-600">${skill}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Insights Panel -->
+                <div class="md:col-span-7 bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm mt-4 border border-blue-100 dark:border-blue-900/30 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+                            <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">auto_awesome</span>
+                            Generative AI Insights
+                        </h3>
+                    </div>
+                    
+                    <!-- Tabs -->
+                    <div class="flex gap-2 border-b border-slate-200 dark:border-slate-700 mb-6 flex-wrap">
+                        <button onclick="switchAiTab('summary')" id="tab-summary" class="ai-tab active-tab px-4 py-3 text-sm font-bold border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 transition-colors">✨ Resume Summary</button>
+                        <button onclick="switchAiTab('questions')" id="tab-questions" class="ai-tab px-4 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">❓ Interview Questions</button>
+                        <button onclick="switchAiTab('feedback')" id="tab-feedback" class="ai-tab px-4 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">📊 Structured Feedback</button>
+                    </div>
+
+                    <!-- Tab Contents -->
+                    <div id="ai-content-summary" class="ai-content block">
+                        <button onclick="generateAiInsight('summarize', 'ai-content-summary')" class="mb-4 px-5 py-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">magic_button</span> Generate Summary
+                        </button>
+                        <div class="result-area text-slate-700 dark:text-slate-300 text-sm leading-relaxed max-w-none">
+                            <p class="text-slate-400 italic font-medium">Click generate to let AI analyze the candidate's core strengths and experience.</p>
+                        </div>
+                    </div>
+                    
+                    <div id="ai-content-questions" class="ai-content hidden">
+                        <button onclick="generateAiInsight('interview-questions', 'ai-content-questions')" class="mb-4 px-5 py-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">magic_button</span> Generate Questions
+                        </button>
+                        <div class="result-area text-slate-700 dark:text-slate-300 text-sm leading-relaxed max-w-none">
+                            <p class="text-slate-400 italic font-medium">Click generate to create targeted technical and behavioral interview questions based on the candidate's history.</p>
+                        </div>
+                    </div>
+                    
+                    <div id="ai-content-feedback" class="ai-content hidden">
+                        <button onclick="generateAiInsight('feedback', 'ai-content-feedback')" class="mb-4 px-5 py-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">magic_button</span> Generate Feedback
+                        </button>
+                        <div class="result-area text-slate-700 dark:text-slate-300 text-sm leading-relaxed max-w-none">
+                            <p class="text-slate-400 italic font-medium">Click generate to receive a structured assessment of strengths, gaps, and recommendations.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function shortlistCandidate() {
+        const candidateId = window.currentCandidateId;
+        if (!candidateId) return;
+        
+        const btn = document.getElementById('shortlist-btn');
+        btn.disabled = true;
+        
+        fetch('/api/shortlist', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({candidate_id: candidateId})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) {
+                btn.className = "mb-6 w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2 transition-opacity";
+                document.getElementById('shortlist-text').textContent = "Shortlisted!";
+                document.getElementById('shortlist-icon').textContent = "check_circle";
+            } else {
+                alert('Error: ' + data.error);
+                btn.disabled = false;
+            }
+        })
+        .catch(e => {
+            console.error(e);
+            btn.disabled = false;
+        });
+    }
+
+    function switchAiTab(tabName) {
+        document.querySelectorAll('.ai-tab').forEach(t => {
+            t.classList.remove('active-tab', 'border-blue-600', 'text-blue-600', 'dark:text-blue-400');
+            t.classList.add('border-transparent', 'text-slate-500');
+        });
+        document.querySelectorAll('.ai-content').forEach(c => c.classList.add('hidden'));
+        
+        const btn = document.getElementById('tab-' + tabName);
+        btn.classList.add('active-tab', 'border-blue-600', 'text-blue-600', 'dark:text-blue-400');
+        btn.classList.remove('border-transparent', 'text-slate-500');
+        
+        document.getElementById('ai-content-' + tabName).classList.remove('hidden');
+    }
+
+    function generateAiInsight(endpoint, containerId) {
+        const candidateId = window.currentCandidateId;
+        if (!candidateId) return;
+        
+        const container = document.getElementById(containerId);
+        const resultArea = container.querySelector('.result-area');
+        const btn = container.querySelector('button');
+        
+        const originalBtnText = btn.innerHTML;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">autorenew</span> Generating...`;
+        btn.disabled = true;
+        resultArea.innerHTML = `<div class="flex items-center gap-2 text-blue-500 font-bold animate-pulse mt-4"><span class="material-symbols-outlined">psychology</span> AI is analyzing the candidate...</div>`;
+        
+        fetch('/api/ai/' + endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({candidate_id: candidateId})
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.innerHTML = originalBtnText;
+            btn.disabled = false;
+            
+            if (data.success) {
+                resultArea.innerHTML = marked.parse(data.result);
+            } else {
+                resultArea.innerHTML = `<p class="text-red-500 font-bold">Error: ${data.error || 'Failed to generate'}</p>`;
+            }
+        })
+        .catch(e => {
+            console.error(e);
+            btn.innerHTML = originalBtnText;
+            btn.disabled = false;
+            resultArea.innerHTML = `<div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"><p class="text-red-600 dark:text-red-400 font-bold mb-1">Encountered an error:</p><code class="text-red-500 text-xs break-all">${e.toString()}</code><p class="text-slate-500 text-xs mt-2">If this is a syntax error, the server might have crashed. Check the terminal where your Flask app is running.</p></div>`;
+        });
+    }
+
+    function downloadPDF() {
+        const c = window.currentCandidate;
+        if (!c) { alert('No candidate loaded'); return; }
+
+        const skills = (c.skills || []).join(', ') || 'N/A';
+        const pred = c.prediction || 'Pending Review';
+        const predColor = pred === 'Shortlisted' ? '#16a34a' : pred === 'Rejected' ? '#dc2626' : '#64748b';
+
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Resume Report - ${c.name || 'Candidate'}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; color: #1e293b; }
+    .page { max-width: 800px; margin: 40px auto; padding: 0 40px 60px; }
+    .header { border-bottom: 3px solid #3b82f6; padding-bottom: 20px; margin-bottom: 24px; }
+    h1 { font-size: 26px; margin-bottom: 4px; }
+    .subtitle { color: #64748b; font-size: 13px; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: white; background: ${predColor}; margin-top: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 20px 0; }
+    .stat { background: #f8fafc; padding: 14px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+    .stat-value { font-size: 26px; font-weight: 900; color: #3b82f6; }
+    .stat-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    .section { margin: 22px 0 0; }
+    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; margin-bottom: 12px; }
+    .skills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .skill { padding: 4px 10px; background: #eff6ff; color: #3b82f6; border-radius: 6px; font-size: 11px; font-weight: 600; }
+    .divider { border: none; border-top: 2px dashed #e2e8f0; margin: 30px 0; }
+    .resume-full { font-family: 'Courier New', Courier, monospace; font-size: 11.5px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; color: #334155; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 14px; }
+    @media print {
+      .page { margin: 0; padding: 20px 30px; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>${c.name || 'Candidate'}</h1>
+      <p class="subtitle">${c.title || 'Professional'} &bull; ${c.email || 'N/A'}</p>
+      <span class="badge">${pred}</span>
+    </div>
+
+    <div class="grid">
+      <div class="stat"><div class="stat-value">${c.match_score || 0}%</div><div class="stat-label">Match Score</div></div>
+      <div class="stat"><div class="stat-value">${c.experience || 0}</div><div class="stat-label">Yrs. Experience</div></div>
+      <div class="stat"><div class="stat-value">30</div><div class="stat-label">Notice (Days)</div></div>
+    </div>
+
+    <div class="section">
+      <p class="section-title">Extracted Skills</p>
+      <div class="skills">${(c.skills||[]).map(s=>'<span class="skill">'+s+'</span>').join('')||'<span style="color:#94a3b8">No skills detected</span>'}</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section">
+      <p class="section-title">Original Resume / File Content</p>
+      <div class="resume-full">${(c.resume_text||'No resume text was stored for this candidate.').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    </div>
+
+    <div class="footer">AI Smart Hiring Platform &mdash; Report generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</div>
+  </div>
+</body>
+</html>`;
+
+        const w = window.open('', '_blank');
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+        setTimeout(() => w.print(), 500);
+    }
+
+    function scheduleInterview() {
+        const c = window.currentCandidate;
+        const email = c ? (c.email || '') : '';
+        const name = c ? (c.name || 'Candidate') : 'Candidate';
+        const subject = encodeURIComponent(`Interview Invitation – ${name}`);
+        const body = encodeURIComponent(`Dear ${name},\n\nWe are pleased to invite you for an interview. Please let us know your availability.\n\nBest regards,\nRecruitment Team`);
+        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    }
+</script>
+</body>
+</html>

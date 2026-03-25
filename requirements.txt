@@ -6,6 +6,7 @@ spacy
 matplotlib
 seaborn
 flask
+flask-cors
 transformers
 torch
 faiss-cpu
@@ -13,3 +14,6 @@ chromadb
 joblib
 openai
 python-dotenv
+PyPDF2
+werkzeug
+python-dateutil

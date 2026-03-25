@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>All Candidates - AI Smart Hiring Platform</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .score-high { color: #16a34a; }
+        .score-mid  { color: #d97706; }
+        .score-low  { color: #dc2626; }
+        .candidate-row { transition: all 0.15s ease; }
+        .candidate-row:hover { transform: translateX(4px); }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+
+<!-- Sidebar -->
+<nav class="fixed left-0 top-0 h-full w-64 bg-slate-100/50 dark:bg-slate-900/50 flex flex-col p-4 z-50">
+    <div class="mb-8 px-2 flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white">
+            <span class="material-symbols-outlined">psychology</span>
+        </div>
+        <div>
+            <h2 class="text-lg font-black text-blue-800 dark:text-blue-300">Recruiter Portal</h2>
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Automated Screening</p>
+        </div>
+    </div>
+    <div class="flex-1 space-y-1">
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="text-sm font-semibold">Dashboard</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 rounded-lg shadow-sm font-bold" href="/candidates">
+            <span class="material-symbols-outlined">group</span>
+            <span class="text-sm font-semibold">All Candidates</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/upload">
+            <span class="material-symbols-outlined">cloud_upload</span>
+            <span class="text-sm font-semibold">Upload Resume</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/analytics">
+            <span class="material-symbols-outlined">analytics</span>
+            <span class="text-sm font-semibold">Analytics</span>
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/chatbot">
+            <span class="material-symbols-outlined">forum</span>
+            <span class="text-sm font-semibold">HR Policy Chatbot</span>
+        </a>
+    </div>
+    <div class="pt-4 mt-auto border-t border-slate-200/50 dark:border-slate-800/50">
+        <a href="/upload" class="w-full flex items-center justify-center gap-2 py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-bold shadow-sm hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-sm">add</span>
+            <span class="text-xs">New Job Posting</span>
+        </a>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main class="ml-64 min-h-screen flex flex-col">
+    <!-- Top Bar -->
+    <header class="sticky top-0 z-40 flex items-center justify-between px-8 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+        <div class="flex items-center gap-6">
+            <h1 class="text-xl font-bold">All Candidates</h1>
+            <span id="total-badge" class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-full">0 total</span>
+        </div>
+        <!-- Search + Filters -->
+        <div class="flex items-center gap-3">
+            <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                <input id="search-input" type="text" placeholder="Search name, email, title..." class="pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm w-64 focus:ring-2 focus:ring-blue-500 border-none outline-none">
+            </div>
+            <select id="filter-select" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm font-semibold border-none focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">All Status</option>
+                <option value="Shortlisted">Shortlisted</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+            <button onclick="exportCSV()" class="flex items-center gap-1 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-full text-sm font-semibold hover:opacity-80 transition-opacity">
+                <span class="material-symbols-outlined text-sm">download</span>
+                Export
+            </button>
+        </div>
+    </header>
+
+    <!-- Table Area -->
+    <div class="flex-1 p-8">
+        <!-- Stats row -->
+        <div id="stats-row" class="grid grid-cols-3 gap-4 mb-8 hidden">
+            <div class="bg-white dark:bg-slate-800 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+                <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg"><span class="material-symbols-outlined text-blue-600">groups</span></div>
+                <div><p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Total</p><p class="text-3xl font-black" id="stat-total">0</p></div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 rounded-xl p-5 flex items-center gap-4 shadow-sm border-l-4 border-green-500">
+                <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg"><span class="material-symbols-outlined text-green-600">check_circle</span></div>
+                <div><p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Shortlisted</p><p class="text-3xl font-black text-green-600" id="stat-shortlisted">0</p></div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 rounded-xl p-5 flex items-center gap-4 shadow-sm border-l-4 border-red-400">
+                <div class="p-3 bg-red-100 dark:bg-red-900 rounded-lg"><span class="material-symbols-outlined text-red-600">cancel</span></div>
+                <div><p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Rejected</p><p class="text-3xl font-black text-red-500" id="stat-rejected">0</p></div>
+            </div>
+        </div>
+
+        <!-- Candidate Table -->
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+                        <th class="text-left px-6 py-4 font-bold text-slate-500 uppercase tracking-wider text-xs">#</th>
+                        <th class="text-left px-6 py-4 font-bold text-slate-500 uppercase tracking-wider text-xs">Candidate</th>
+                        <th class="text-left px-6 py-4 font-bold text-slate-500 uppercase tracking-wider text-xs">Skills</th>
+                        <th class="text-center px-6 py-4 font-bold text-slate-500 uppercase tracking-wider text-xs cursor-pointer hover:text-blue-600" onclick="toggleSort()">
+                            Match Score <span id="sort-icon" class="material-symbols-outlined text-xs align-middle">unfold_more</span>
+                        </th>
+                        <th class="text-center px-6 py-4 font-bold text-slate-500 uppercase tracking-wider text-xs">Status</th>
+                        <th class="text-center px-6 py-4 font-bold text-slate-500 uppercase tracking-wider text-xs">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="candidates-tbody">
+                    <tr>
+                        <td colspan="6" class="text-center py-16 text-slate-400">
+                            <span class="material-symbols-outlined text-4xl block mb-3">hourglass_empty</span>
+                            Loading candidates...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-24 text-slate-400">
+            <span class="material-symbols-outlined text-6xl mb-4">person_search</span>
+            <p class="text-xl font-bold mb-2">No candidates found</p>
+            <p class="text-sm mb-6">Upload resumes or CSV files on the Upload page to get started.</p>
+            <a href="/upload" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:opacity-90 transition-opacity">Upload Resumes</a>
+        </div>
+    </div>
+</main>
+
+<script>
+    let allCandidates = [];
+    let sortDir = -1; // -1 = desc (highest first)
+
+    document.addEventListener('DOMContentLoaded', loadCandidates);
+
+    let debounceTimer;
+    document.getElementById('search-input').addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(loadCandidates, 300);
+    });
+    document.getElementById('filter-select').addEventListener('change', loadCandidates);
+
+    function loadCandidates() {
+        const search = document.getElementById('search-input').value;
+        const filter = document.getElementById('filter-select').value;
+        const params = new URLSearchParams();
+        if (search) params.set('search', search);
+        if (filter) params.set('filter', filter);
+
+        fetch('/api/candidates?' + params.toString())
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    allCandidates = data.candidates;
+                    renderTable(allCandidates);
+                    updateStats(allCandidates);
+                }
+            })
+            .catch(e => console.error(e));
+    }
+
+    function renderTable(candidates) {
+        const tbody = document.getElementById('candidates-tbody');
+        const empty = document.getElementById('empty-state');
+        const statsRow = document.getElementById('stats-row');
+        const badge = document.getElementById('total-badge');
+
+        badge.textContent = `${candidates.length} total`;
+
+        if (candidates.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-16 text-slate-400">
+                <span class="material-symbols-outlined text-5xl block mb-3">person_search</span>
+                <p class="font-bold">No candidates match your search</p>
+            </td></tr>`;
+            statsRow.classList.add('hidden');
+            return;
+        }
+
+        statsRow.classList.remove('hidden');
+
+        tbody.innerHTML = candidates.map((c, idx) => {
+            const predBadge = c.prediction === 'Shortlisted'
+                ? '<span class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase">Shortlisted</span>'
+                : c.prediction === 'Rejected'
+                    ? '<span class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded uppercase">Rejected</span>'
+                    : '<span class="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded uppercase">Pending</span>';
+
+            const scoreColor = c.match_score >= 60 ? 'text-green-600' : c.match_score >= 30 ? 'text-amber-500' : 'text-red-500';
+            const topSkills = (c.skills || []).slice(0, 3).map(s => `<span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-blue-600 dark:text-blue-400 text-[10px] font-semibold rounded">${s}</span>`).join('');
+
+            return `
+            <tr class="candidate-row border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer" onclick="window.location.href='/analytics?id=${c.id}'">
+                <td class="px-6 py-4 font-bold text-slate-400">${idx + 1}</td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-blue-600">person</span>
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-900 dark:text-white">${c.name || 'Unknown'}</p>
+                            <p class="text-xs text-slate-500">${c.email || ''}</p>
+                            <p class="text-xs text-slate-400">${c.title || 'Professional'} &bull; ${c.experience || 0} yrs exp</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex flex-wrap gap-1">${topSkills || '<span class="text-xs text-slate-400">N/A</span>'}</div>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="text-2xl font-black ${scoreColor}">${c.match_score}%</span>
+                </td>
+                <td class="px-6 py-4 text-center">${predBadge}</td>
+                <td class="px-6 py-4 text-center" onclick="event.stopPropagation()">
+                    <button onclick="shortlistCandidate('${c.id}', this)" class="px-3 py-1.5 text-xs font-bold rounded-lg ${c.is_shortlisted ? 'bg-green-100 text-green-700 cursor-default' : 'bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white'} transition-all">
+                        ${c.is_shortlisted ? 'Shortlisted' : 'Shortlist'}
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function updateStats(candidates) {
+        document.getElementById('stat-total').textContent = candidates.length;
+        document.getElementById('stat-shortlisted').textContent = candidates.filter(c => c.prediction === 'Shortlisted').length;
+        document.getElementById('stat-rejected').textContent = candidates.filter(c => c.prediction === 'Rejected').length;
+    }
+
+    function toggleSort() {
+        sortDir *= -1;
+        document.getElementById('sort-icon').textContent = sortDir === -1 ? 'arrow_downward' : 'arrow_upward';
+        allCandidates.sort((a, b) => sortDir * (b.match_score - a.match_score));
+        renderTable(allCandidates);
+    }
+
+    function shortlistCandidate(candidateId, btn) {
+        if (btn.classList.contains('cursor-default')) return;
+        fetch('/api/shortlist', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({candidate_id: candidateId})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                btn.textContent = 'Shortlisted';
+                btn.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-green-100 text-green-700 cursor-default transition-all';
+            }
+        });
+    }
+
+    function exportCSV() {
+        if (!allCandidates.length) return;
+        const headers = ['Name', 'Email', 'Title', 'Experience', 'Match Score', 'Prediction', 'Skills'];
+        const rows = allCandidates.map(c => [
+            c.name, c.email, c.title, c.experience,
+            c.match_score, c.prediction,
+            (c.skills || []).join('; ')
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+        const a = document.createElement('a');
+        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+        a.download = 'candidates_export.csv';
+        a.click();
+    }
+</script>
+</body>
+</html>
