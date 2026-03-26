@@ -8,14 +8,8 @@ Handles rate limiting, model fallback, and missing API key gracefully.
 import os
 import time
 
-<<<<<<< HEAD
-from sklearn.feature_extraction.text import TfidfVectorizer
-import numpy as np
-
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-=======
-GOOGLE_API_KEY = "" #api
->>>>>>> b3e3381b161d14e48dfa23a52c0ab1a9b53d316d
+
 
 # Models to try in order (most capable → most available)
 _MODELS = [
