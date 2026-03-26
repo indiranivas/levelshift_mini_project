@@ -6,6 +6,11 @@ A complete end-to-end AI/ML + NLP + GenAI system that automates recruitment thro
 
 This platform combines machine learning, natural language processing, and modern web technologies to streamline the hiring process. It analyzes resumes, matches candidates to job descriptions, extracts skills, and provides AI-powered insights for recruiters.
 
+## 🌐 Live Demo
+
+🚀 Try the application here:  
+👉 https://levelshift-mini-project.onrender.com
+
 ## 🏗️ Project Structure
 
 ```
