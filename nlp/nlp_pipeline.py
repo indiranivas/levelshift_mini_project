@@ -9,7 +9,7 @@ import datetime
 from dateutil import parser as dateparser
 
 # Attempt to download NLTK data silently (works offline if already cached)
-for _pkg in ['stopwords', 'wordnet', 'omw-1.4']:
+for _pkg in ['stopwords', 'wordnet', 'omw-1.4', 'punkt_tab']:
     try:
         nltk.download(_pkg, quiet=True)
     except Exception:
