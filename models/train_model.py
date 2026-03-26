@@ -3,17 +3,21 @@ import numpy as np
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 import joblib
-import os
+
 
 # Import data processing
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+print('train_model root path:', ROOT)
+print('sys.path before:', sys.path[:3])
+sys.path.insert(0, ROOT)
+print('sys.path after:', sys.path[:3])
 from data.data_processing import preprocess_data
 
 def create_binary_target(df):
@@ -40,17 +44,17 @@ def train_and_evaluate_model(X, y, model, model_name):
     """
     Train and evaluate a single model.
     """
-    # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-    # Train model
     model.fit(X_train, y_train)
 
-    # Predictions
     y_pred = model.predict(X_test)
-    y_pred_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+    y_pred_proba = None
+    if hasattr(model, 'predict_proba'):
+        y_pred_proba = model.predict_proba(X_test)[:, 1]
+    elif hasattr(model, 'decision_function'):
+        y_pred_proba = model.decision_function(X_test)
 
-    # Metrics
     metrics = {
         'accuracy': accuracy_score(y_test, y_pred),
         'precision': precision_score(y_test, y_pred),
@@ -66,11 +70,27 @@ def train_and_evaluate_model(X, y, model, model_name):
 
     return model, metrics
 
+
+def build_ensemble_model(tuned_models):
+    """Build a hard-voting ensemble from tuned component models."""
+    estimators = []
+    for name, m in tuned_models.items():
+        estimators.append((name.replace(' ', '_'), m))
+
+    ensemble = VotingClassifier(estimators=estimators, voting='soft', n_jobs=-1)
+    return ensemble
+
+
+def evaluate_ensemble(X, y, ensemble):
+    """Train and evaluate voting ensemble model with cross-validation."""
+    return perform_cross_validation(X, y, ensemble, 'Voting Ensemble')
+
+
 def perform_cross_validation(X, y, model, model_name):
     """
     Perform cross-validation.
     """
-    scores = cross_val_score(model, X, y, cv=5, scoring='f1')
+    scores = cross_val_score(model, X, y, cv=3, scoring='f1')
     print(f"\n{model_name} Cross-Validation F1 Scores: {scores}")
     print(f"Mean F1: {scores.mean():.4f} (+/- {scores.std() * 2:.4f})")
     return scores
@@ -79,13 +99,30 @@ def hyperparameter_tuning(X, y, model, param_grid, model_name):
     """
     Perform GridSearchCV for hyperparameter tuning.
     """
-    grid_search = GridSearchCV(model, param_grid, cv=5, scoring='f1', n_jobs=-1)
+    grid_search = GridSearchCV(model, param_grid, cv=3, scoring='f1', n_jobs=1)
     grid_search.fit(X, y)
 
     print(f"\n{model_name} Best Parameters: {grid_search.best_params_}")
     print(f"Best F1 Score: {grid_search.best_score_:.4f}")
 
     return grid_search.best_estimator_
+
+def evaluate_on_holdout(X, y, model):
+    """Evaluate model on a held-out subset and print confusion and metrics."""
+    from sklearn.metrics import confusion_matrix, classification_report
+
+    X_train, X_holdout, y_train, y_holdout = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    model.fit(X_train, y_train)
+    y_pred_holdout = model.predict(X_holdout)
+
+    print("\nHoldout set evaluation:")
+    print("Confusion matrix:")
+    print(confusion_matrix(y_holdout, y_pred_holdout))
+    print("Classification report:")
+    print(classification_report(y_holdout, y_pred_holdout, digits=4))
+
+    return confusion_matrix(y_holdout, y_pred_holdout), classification_report(y_holdout, y_pred_holdout)
+
 
 def save_model(model, filename):
     """
@@ -147,9 +184,9 @@ def main():
 
     # Param grids for GridSearch
     param_grids = {
-        'Logistic Regression': {'C': [0.1, 1, 10]},
-        'Decision Tree': {'max_depth': [5, 10, None], 'min_samples_split': [2, 5, 10]},
-        'Random Forest': {'n_estimators': [50, 100], 'max_depth': [10, None]},
+        'Logistic Regression': {'C': [0.1, 1]},
+        'Decision Tree': {'max_depth': [5, 10], 'min_samples_split': [2, 5]},
+        'Random Forest': {'n_estimators': [50], 'max_depth': [10, None]},
     }
 
     best_models = {}
@@ -168,6 +205,16 @@ def main():
 
         # Save model
         save_model(trained_model, f"{model_name.lower().replace(' ', '_')}_model.pkl")
+
+    # Build and evaluate ensemble model
+    ensemble = build_ensemble_model(best_models)
+    evaluate_ensemble(X, y, ensemble)
+
+    # Optional: hold-out evaluation on best ensemble
+    evaluate_on_holdout(X, y, ensemble)
+
+    ensemble.fit(X, y)
+    save_model(ensemble, 'ensemble_model.pkl')
 
     print("\nAll models trained and saved successfully!")
 

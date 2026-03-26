@@ -7,6 +7,7 @@ import os
 # Add the project root to the path to import nlp module
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from nlp.nlp_pipeline import extract_skills, extract_experience, count_skills
+ 
 
 def load_resume_data(filepath):
     """

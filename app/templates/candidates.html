@@ -203,7 +203,7 @@
             const topSkills = (c.skills || []).slice(0, 3).map(s => `<span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-blue-600 dark:text-blue-400 text-[10px] font-semibold rounded">${s}</span>`).join('');
 
             return `
-            <tr class="candidate-row border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer" onclick="window.location.href='/analytics?id=${c.id}'">
+            <tr class="candidate-row border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer" onclick="window.location.href='/candidate/${c.id}'">
                 <td class="px-6 py-4 font-bold text-slate-400">${idx + 1}</td>
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
