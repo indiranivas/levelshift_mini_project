@@ -673,6 +673,23 @@ def get_latest_candidate():
         'candidate': latest
     })
 
+@app.route('/api/candidate/<candidate_id>', methods=['GET'])
+def get_candidate(candidate_id):
+    """Get a specific candidate by ID."""
+    db = get_db()
+    row = db.execute('SELECT * FROM candidates WHERE id = ?', (candidate_id,)).fetchone()
+
+    if not row:
+        return jsonify({'success': False, 'error': 'Candidate not found'}), 404
+
+    candidate = dict(row)
+    candidate['skills'] = json.loads(candidate['skills']) if candidate['skills'] else []
+
+    return jsonify({
+        'success': True,
+        'candidate': candidate
+    })
+
 @app.route('/api/shortlist', methods=['POST'])
 def shortlist_candidate():
     """Shortlist a candidate."""
