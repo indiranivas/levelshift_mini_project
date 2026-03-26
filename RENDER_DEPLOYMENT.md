@@ -54,7 +54,7 @@ Copy the output — you'll need it in Step 5.
 | **Name** | `hiring-system` (or your preferred name) |
 | **Runtime** | `Python 3.11` |
 | **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `gunicorn wsgi:app` |
+| **Start Command** | `gunicorn -w 4 -b 0.0.0.0:$PORT wsgi:app` |
 | **Instance Type** | `Free` (for testing) or `Standard` (production) |
 
 ### Build Logs
