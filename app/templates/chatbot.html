@@ -123,9 +123,57 @@ TalentAI Solutions Hiring Guidelines (2024 V2.1)
 - Candidates needing relocation are eligible for up to a $5000 signing bonus (requires Director approval).
 `;
 
+    // Candidate data for making names clickable
+    let candidatesMap = new Map();
+
+    // Load candidates for name linking
+    function loadCandidates() {
+        fetch('/api/candidates')
+            .then(r => r.json())
+            .then(data => {
+                if (data.candidates) {
+                    data.candidates.forEach(candidate => {
+                        if (candidate.name) {
+                            candidatesMap.set(candidate.name.toLowerCase(), {
+                                id: candidate.id,
+                                originalName: candidate.name
+                            });
+                        }
+                    });
+                }
+            })
+            .catch(e => console.error('Error loading candidates for chat linking:', e));
+    }
+
+    // Make candidate names in HTML clickable
+    function makeCandidateNamesClickable(html) {
+        if (!html) return html;
+        
+        let processedHtml = html;
+        
+        // Process each candidate name
+        candidatesMap.forEach((candidateData, nameKey) => {
+            const candidateId = candidateData.id;
+            const originalName = candidateData.originalName;
+            
+            // Create regex to match the original name (case-insensitive)
+            const regex = new RegExp(`\\b(${originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
+            processedHtml = processedHtml.replace(regex, (match) => {
+                return `<a href="/candidate/${candidateId}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline font-medium" target="_blank">${match}</a>`;
+            });
+        });
+        
+        return processedHtml;
+    }
+
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
+
+    // Load candidates when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCandidates();
+    });
 
     function handleEnter(e) {
         if (e.key === 'Enter') sendMessage();
@@ -170,7 +218,8 @@ TalentAI Solutions Hiring Guidelines (2024 V2.1)
     function updateBotMessage(id, markdownText) {
         const el = document.getElementById(id);
         if (el) {
-            el.innerHTML = marked.parse(markdownText);
+            const parsedHtml = marked.parse(markdownText);
+            el.innerHTML = makeCandidateNamesClickable(parsedHtml);
             scrollToBottom();
         }
     }

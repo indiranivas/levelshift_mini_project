@@ -27,9 +27,14 @@ except LookupError:
 
 
 def _lemmatize(word: str) -> str:
+    global lemmatizer
     if lemmatizer is None:
         return word
-    return lemmatizer.lemmatize(word)
+    try:
+        return lemmatizer.lemmatize(word)
+    except Exception:
+        lemmatizer = None
+        return word
 
 # ─────────────────────────────────────────────
 # Predefined skill keywords for extraction

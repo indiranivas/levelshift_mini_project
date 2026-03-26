@@ -110,7 +110,58 @@
 </main>
 
 <script>
+    // Candidate data for making names clickable in chat
+    let candidatesMap = new Map();
+
+    // Load candidates for name linking in chat responses
+    function loadCandidates() {
+        fetch('/api/candidates')
+            .then(r => r.json())
+            .then(data => {
+                if (data.candidates) {
+                    data.candidates.forEach(candidate => {
+                        if (candidate.name) {
+                            candidatesMap.set(candidate.name.toLowerCase(), {
+                                id: candidate.id,
+                                originalName: candidate.name
+                            });
+                        }
+                    });
+                }
+            })
+            .catch(e => console.error('Error loading candidates for chat linking:', e));
+    }
+
+    // Make candidate names in HTML clickable
+    function makeCandidateNamesClickable(html) {
+        if (!html) return html;
+        
+        let processedHtml = html;
+        
+        // Process each candidate name
+        candidatesMap.forEach((candidateData, nameKey) => {
+            const candidateId = candidateData.id;
+            const originalName = candidateData.originalName;
+            
+            // Create regex to match the original name (case-insensitive)
+            const regex = new RegExp(`\\b(${originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
+            processedHtml = processedHtml.replace(regex, (match) => {
+                return `<a href="/candidate/${candidateId}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline font-medium" target="_blank">${match}</a>`;
+            });
+        });
+        
+        return processedHtml;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        // Load candidates for chat name linking
+        loadCandidates();
+        
+        // Check if candidate data is pre-loaded from Flask
+        {% if candidate %}
+        const preloadedCandidate = {{ candidate|tojson }};
+        displayCandidate(preloadedCandidate);
+        {% else %}
         // Get candidate ID from query params or session
         const params = new URLSearchParams(window.location.search);
         const candidateId = params.get('id');
@@ -142,6 +193,7 @@
                 })
                 .catch(e => console.error('Error:', e));
         }
+        {% endif %}
     });
 
     function displayCandidate(candidate) {
@@ -264,6 +316,7 @@
                         <button onclick="switchAiTab('summary')" id="tab-summary" class="ai-tab active-tab px-4 py-3 text-sm font-bold border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 transition-colors">✨ Resume Summary</button>
                         <button onclick="switchAiTab('questions')" id="tab-questions" class="ai-tab px-4 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">❓ Interview Questions</button>
                         <button onclick="switchAiTab('feedback')" id="tab-feedback" class="ai-tab px-4 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">📊 Structured Feedback</button>
+                        <button onclick="switchAiTab('chat')" id="tab-chat" class="ai-tab px-4 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">💬 Chat with AI</button>
                     </div>
 
                     <!-- Tab Contents -->
@@ -291,6 +344,25 @@
                         </button>
                         <div class="result-area text-slate-700 dark:text-slate-300 text-sm leading-relaxed max-w-none">
                             <p class="text-slate-400 italic font-medium">Click generate to receive a structured assessment of strengths, gaps, and recommendations.</p>
+                        </div>
+                    </div>
+                    
+                    <div id="ai-content-chat" class="ai-content hidden">
+                        <div class="mb-4 text-sm text-slate-600 dark:text-slate-400">
+                            <p class="font-medium mb-2">Ask the AI anything about this candidate:</p>
+                            <div class="flex gap-2">
+                                <input type="text" id="chat-input" class="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., What are their key achievements? Do they have remote work experience?" onkeypress="handleChatEnter(event)">
+                                <button onclick="sendChatMessage()" id="chat-send-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-sm">send</span>
+                                    <span class="hidden sm:inline">Send</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="chat-messages" class="space-y-4 max-h-96 overflow-y-auto">
+                            <div class="text-center text-slate-400 italic text-sm py-8">
+                                <span class="material-symbols-outlined text-2xl mb-2 block">chat</span>
+                                Start a conversation about this candidate
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -461,6 +533,141 @@
         const subject = encodeURIComponent(`Interview Invitation – ${name}`);
         const body = encodeURIComponent(`Dear ${name},\n\nWe are pleased to invite you for an interview. Please let us know your availability.\n\nBest regards,\nRecruitment Team`);
         window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    }
+
+    function handleChatEnter(e) {
+        if (e.key === 'Enter') sendChatMessage();
+    }
+
+    function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        if (!message) return;
+        
+        const candidate = window.currentCandidate;
+        if (!candidate) return;
+        
+        const chatMessages = document.getElementById('chat-messages');
+        const sendBtn = document.getElementById('chat-send-btn');
+        
+        // Add user message
+        const userMsgHtml = `
+            <div class="flex items-start gap-3 flex-row-reverse">
+                <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex justify-center items-center text-slate-600 dark:text-slate-300 shrink-0">
+                    <span class="material-symbols-outlined text-sm">person</span>
+                </div>
+                <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-sm shadow-sm max-w-[80%] text-sm">
+                    ${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+                </div>
+            </div>`;
+        chatMessages.insertAdjacentHTML('beforeend', userMsgHtml);
+        
+        // Clear input and disable
+        input.value = '';
+        input.disabled = true;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm">autorenew</span>';
+        
+        // Add AI thinking indicator
+        const thinkingId = 'thinking-' + Date.now();
+        const thinkingHtml = `
+            <div class="flex items-start gap-3" id="${thinkingId}">
+                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex justify-center items-center text-blue-600 shrink-0">
+                    <span class="material-symbols-outlined text-sm">smart_toy</span>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-slate-700 dark:text-slate-300">
+                    <div class="flex items-center gap-2 text-blue-500">
+                        <span class="material-symbols-outlined animate-spin text-sm">psychology</span>
+                        AI is thinking...
+                    </div>
+                </div>
+            </div>`;
+        chatMessages.insertAdjacentHTML('beforeend', thinkingHtml);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Prepare context about this candidate
+        const candidateContext = `You are answering questions about a specific job candidate. Here are their details:
+- Name: ${candidate.name || 'Unknown'}
+- Title: ${candidate.title || 'Professional'}
+- Experience: ${candidate.experience || 0} years
+- Email: ${candidate.email || 'N/A'}
+- Match Score: ${candidate.match_score || 0}%
+- Prediction: ${candidate.prediction || 'Pending'}
+- Skills: ${(candidate.skills || []).join(', ') || 'None listed'}
+- Resume Text: ${candidate.resume_text ? candidate.resume_text.substring(0, 1000) + '...' : 'Not available'}`;
+        
+        // Send to AI chat API
+        fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                question: message,
+                context: candidateContext
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            // Remove thinking indicator
+            const thinkingEl = document.getElementById(thinkingId);
+            if (thinkingEl) thinkingEl.remove();
+            
+            // Re-enable input
+            input.disabled = false;
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<span class="material-symbols-outlined text-sm">send</span><span class="hidden sm:inline">Send</span>';
+            
+            if (data.success) {
+                // Add AI response
+                const aiMsgHtml = `
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex justify-center items-center text-blue-600 shrink-0">
+                            <span class="material-symbols-outlined text-sm">smart_toy</span>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-slate-700 dark:text-slate-300 prose dark:prose-invert">
+                            ${makeCandidateNamesClickable(marked.parse(data.answer))}
+                        </div>
+                    </div>`;
+                chatMessages.insertAdjacentHTML('beforeend', aiMsgHtml);
+            } else {
+                // Add error message
+                const errorMsgHtml = `
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900 flex justify-center items-center text-red-600 shrink-0">
+                            <span class="material-symbols-outlined text-sm">error</span>
+                        </div>
+                        <div class="bg-red-50 dark:bg-red-900/20 p-3 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-red-700 dark:text-red-300">
+                            <strong>Error:</strong> ${data.error || 'Failed to get AI response'}
+                        </div>
+                    </div>`;
+                chatMessages.insertAdjacentHTML('beforeend', errorMsgHtml);
+            }
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        })
+        .catch(e => {
+            console.error(e);
+            // Remove thinking indicator
+            const thinkingEl = document.getElementById(thinkingId);
+            if (thinkingEl) thinkingEl.remove();
+            
+            // Re-enable input
+            input.disabled = false;
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<span class="material-symbols-outlined text-sm">send</span><span class="hidden sm:inline">Send</span>';
+            
+            // Add error message
+            const errorMsgHtml = `
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900 flex justify-center items-center text-red-600 shrink-0">
+                        <span class="material-symbols-outlined text-sm">error</span>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 p-3 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-red-700 dark:text-red-300">
+                        <strong>Network Error:</strong> Unable to connect to AI service. Please try again.
+                    </div>
+                </div>`;
+            chatMessages.insertAdjacentHTML('beforeend', errorMsgHtml);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
     }
 </script>
 </body>

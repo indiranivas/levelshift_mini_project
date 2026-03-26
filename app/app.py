@@ -10,15 +10,19 @@ import numpy as np
 import sqlite3
 import uuid
 from flask import g
-
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import regex as re
+# Add parent directory and app module path to path for imports
+ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+APP_PATH = os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, ROOT_PATH)
+sys.path.insert(0, APP_PATH)
 
 from data.data_processing import preprocess_data
 from nlp.nlp_pipeline import NLPPipeline, extract_skills, extract_experience
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import genai_helper
+import rag_engine
 
 # Initialize Flask app
 app = Flask(__name__, template_folder='templates')
@@ -70,15 +74,26 @@ def init_db():
         db.commit()
 
 init_db()
-
+    
 # Load pre-trained models
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models')
+# Load models with ensemble fallback
+ensemble_model = None
+primary_model = None
+
 try:
-    rf_model = joblib.load(os.path.join(MODEL_PATH, 'logistic_regression_model.pkl'))
-    print("Logistic Regression model loaded successfully as the active model")
+    ensemble_model = joblib.load(os.path.join(MODEL_PATH, 'ensemble_model.pkl'))
+    primary_model = ensemble_model
+    print("Ensemble model loaded successfully")
 except Exception as e:
-    print(f"Warning: Could not load model: {e}")
-    rf_model = None
+    print(f"Warning: Could not load ensemble model: {e}")
+
+if primary_model is None:
+    try:
+        primary_model = joblib.load(os.path.join(MODEL_PATH, 'logistic_regression_model.pkl'))
+        print("Fallback: Logistic Regression model loaded successfully")
+    except Exception as e:
+        print(f"Warning: Could not load logistic regression model: {e}")
 
 try:
     tfidf_vectorizer = joblib.load(os.path.join(MODEL_PATH, 'tfidf_vectorizer.pkl'))
@@ -93,6 +108,8 @@ try:
 except Exception as e:
     print(f"Warning: Could not load Standard Scaler: {e}")
     standard_scaler = None
+
+rf_model = primary_model  # legacy variable name used in prediction path
 
 # NLP Pipeline
 nlp_pipeline = NLPPipeline()
@@ -120,25 +137,73 @@ def extract_text_from_file(file):
             return file.read().decode('utf-8', errors='ignore')
     return ""
 
-def calculate_match_score(resume_text, job_description):
-    """Calculate match score between resume and job description using TF-IDF."""
+def calculate_skill_overlap(resume_text, job_description):
+    """Calculate simple keyword overlap between resume and job description."""
     try:
-        if tfidf_vectorizer is None:
-            # Fallback if global vectorizer failed to load
+        resume_tokens = set(re.findall(r"\b\w+\b", resume_text.lower()))
+        job_tokens = set(re.findall(r"\b\w+\b", job_description.lower()))
+        if not resume_tokens or not job_tokens:
+            return 0.0
+
+        intersect = resume_tokens.intersection(job_tokens)
+        score = len(intersect) / max(len(job_tokens), 1)
+        return min(score, 1.0)
+    except Exception:
+        return 0.0
+
+
+def calculate_match_score(resume_text, job_description, candidate_skills=None, candidate_experience=None):
+    """Calculate weighted match score from TF-IDF cosine similarity, skill overlap, and model probability."""
+    try:
+        # TF-IDF similarity
+        similarity = 0.0
+        if tfidf_vectorizer is not None:
+            vectors = tfidf_vectorizer.transform([resume_text, job_description])
+            similarity = float(cosine_similarity(vectors[0:1], vectors[1:2])[0][0])
+        else:
             vectorizer = TfidfVectorizer(stop_words='english', max_features=100)
             vectors = vectorizer.fit_transform([resume_text, job_description])
-        else:
-            # Use globally fitted TF-IDF to preserve IDF weights accurately
-            vectors = tfidf_vectorizer.transform([resume_text, job_description])
-        
-        # Calculate cosine similarity
-        similarity = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
-        
-        # Convert to percentage (0-100)
-        return int(similarity * 100)
+            similarity = float(cosine_similarity(vectors[0:1], vectors[1:2])[0][0])
+
+        # Skill overlap
+        overlap = calculate_skill_overlap(resume_text, job_description)
+
+        # ML prediction probability
+        model_prob = 0.0
+        if rf_model is not None and standard_scaler is not None and tfidf_vectorizer is not None:
+            try:
+                import scipy.sparse as sp
+                resume_length = len(resume_text)
+                word_count = len(resume_text.split())
+                skill_count = len(candidate_skills) if candidate_skills is not None else 0
+                experience_years = candidate_experience if candidate_experience is not None else 0
+
+                X_num = pd.DataFrame(
+                    [[resume_length, word_count, skill_count, experience_years]],
+                    columns=['resume_length', 'word_count', 'skill_count', 'experience_years']
+                )
+                X_scaled = standard_scaler.transform(X_num)
+                X_tfidf = tfidf_vectorizer.transform([resume_text])
+                X_comb = sp.hstack((X_scaled, X_tfidf))
+
+                if hasattr(rf_model, 'predict_proba'):
+                    model_prob = float(rf_model.predict_proba(X_comb)[0, 1])
+                elif hasattr(rf_model, 'decision_function'):
+                    decision_score = float(rf_model.decision_function(X_comb)[0])
+                    model_prob = 1 / (1 + np.exp(-decision_score))
+            except Exception as e:
+                print(f"Model scoring error in calculate_match_score: {e}")
+
+        # Experience multiplier (caps at 1.0 for 10+ years)
+        experience_score = min(candidate_experience / 10.0, 1.0) if candidate_experience else 0.0
+
+        # Weighted blend (tune weights as needed)
+        combined = (0.45 * similarity) + (0.25 * overlap) + (0.25 * model_prob) + (0.05 * experience_score)
+        combined_clamped = max(0.0, min(1.0, combined))
+        return int(combined_clamped * 100)
     except Exception as e:
         print(f"Error calculating match score: {e}")
-        return 50  # Default score
+        return 50  # default fallback
 
 def extract_candidate_info(resume_text):
     """Extract basic candidate information from resume text."""
@@ -252,27 +317,84 @@ def ai_feedback():
 
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
-    """Answer an HR policy question via the Gemini chatbot."""
+    """Answer an HR policy question via the Gemini chatbot with enhanced RAG support."""
     data = request.json or {}
     question = data.get('question', '')
     context = data.get('context', '')
     
-    # Enrich context with current candidates from the database
+    if not question:
+        return jsonify({'success': False, 'error': 'Question required'}), 400
+    
+    # Detect if user is asking about candidates (contains keywords like "candidate", "show", "list", etc.)
+    candidate_keywords = ['candidate', 'candidates', 'who', 'which', 'show me', 'list', 'find', 'search', 'filter', 'skill', 'experience']
+    is_candidate_query = any(keyword in question.lower() for keyword in candidate_keywords)
+    
+    if is_candidate_query:
+        # Two-step process for candidate queries
+        try:
+            # Step 1: Use GenAI to interpret what candidate data is needed
+            interpretation_json = genai_helper.interpret_candidate_query(question)
+            
+            # Parse the JSON response
+            try:
+                import ast
+                query_params = ast.literal_eval(interpretation_json) if interpretation_json.startswith('{') else json.loads(interpretation_json)
+            except:
+                # Fallback to default params if parsing fails
+                query_params = {
+                    'search_keywords': '',
+                    'experience_min': 0,
+                    'experience_max': 999,
+                    'status_filter': 'All',
+                    'match_score_min': 0,
+                    'limit': 10
+                }
+            
+            # Step 2: Execute the query with interpreted filters
+            candidates = rag_engine.search_candidates_with_filters(
+                keywords=query_params.get('search_keywords', ''),
+                experience_min=int(query_params.get('experience_min', 0)),
+                experience_max=int(query_params.get('experience_max', 999)),
+                status_filter=query_params.get('status_filter', 'All'),
+                match_score_min=int(query_params.get('match_score_min', 0)),
+                limit=int(query_params.get('limit', 10))
+            )
+            
+            # Format candidate data for display
+            if candidates:
+                candidates_text = "CANDIDATES FOUND:\n\n"
+                for idx, c in enumerate(candidates, 1):
+                    shortlisted = "Yes" if c['is_shortlisted'] else "No"
+                    skills_str = ", ".join(c['skills']) if isinstance(c['skills'], list) else str(c['skills'])
+                    candidates_text += f"{idx}. {c['name']}\n"
+                    candidates_text += f"   - Role: {c['title']}\n"
+                    candidates_text += f"   - Experience: {c['experience']} years\n"
+                    candidates_text += f"   - Match Score: {c['match_score']}%\n"
+                    candidates_text += f"   - Status: {c['prediction']}\n"
+                    candidates_text += f"   - Skills: {skills_str}\n"
+                    candidates_text += f"   - Shortlisted: {shortlisted}\n\n"
+            else:
+                candidates_text = "No candidates found matching your criteria."
+            
+            # Step 3: Use GenAI to format a comprehensive response
+            result = genai_helper.format_candidate_data_response(question, candidates_text)
+            return jsonify({'success': True, 'answer': result, 'candidates_count': len(candidates)})
+            
+        except Exception as e:
+            print(f"Error in enhanced candidate query: {e}")
+            # Fallback to basic RAG if enhanced process fails
+            pass
+    
+    # Default flow: Basic RAG + GenAI for non-candidate queries or fallback
     try:
-        db = get_db()
-        rows = db.execute('''
-            SELECT name, email, title, experience, match_score, prediction, is_shortlisted, skills 
-            FROM candidates
-        ''').fetchall()
+        relevant_candidates = rag_engine.search_relevant_candidates(question, top_k=3)
         
-        db_context = "\n\n--- CURRENT CANDIDATES IN DATABASE ---\n"
-        if not rows:
-            db_context += "No candidates currently in the system.\n"
+        db_context = "\n\n--- RELEVANT CANDIDATES FROM DATABASE ---\n"
+        if not relevant_candidates:
+            db_context += "No highly relevant candidates found for this query.\n"
         else:
-            for r in rows:
+            for r in relevant_candidates:
                 shortlisted = "Yes" if r['is_shortlisted'] else "No"
-                
-                # Safely parse skills JSON, avoiding crash if corrupt or empty
                 skills_str = "None"
                 if r['skills']:
                     try:
@@ -285,11 +407,9 @@ def ai_chat():
         
         context = context + db_context
     except Exception as e:
-        print("Error fetching candidates for chat context:", e)
+        print("Error fetching RAG candidates for chat context:", e)
         # Continue without DB context if it fails so the chat still works
 
-    if not question:
-        return jsonify({'success': False, 'error': 'Question required'}), 400
     result = genai_helper.answer_hiring_question(question, context)
     return jsonify({'success': True, 'answer': result})
 
@@ -415,8 +535,13 @@ def analyze_resumes():
             # Extract candidate info
             candidate_info = extract_candidate_info(resume_text)
             
-            # Calculate match score
-            match_score = calculate_match_score(resume_text, job_description)
+            # Calculate match score (weighted ensemble + TF-IDF + overlap + experience)
+            match_score = calculate_match_score(
+                resume_text,
+                job_description,
+                candidate_skills=candidate_info.get('skills', []),
+                candidate_experience=candidate_info.get('experience', 0)
+            )
             
             # Apply NLP processing
             nlp_features = nlp_pipeline.process_resume_text(resume_text)
@@ -483,25 +608,20 @@ def analyze_resumes():
         print(f"Error in analyze_resumes: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/candidate/<candidate_id>', methods=['GET'])
-def get_candidate(candidate_id):
-    """Get specific candidate details."""
+@app.route('/candidate/<candidate_id>')
+def candidate_analytics(candidate_id):
+    """Individual candidate analytics page."""
     db = get_db()
     
     row = db.execute('SELECT * FROM candidates WHERE id = ?', (candidate_id,)).fetchone()
     
-    if row:
-        candidate = dict(row)
-        candidate['skills'] = json.loads(candidate['skills']) if candidate['skills'] else []
-        return jsonify({
-            'success': True,
-            'candidate': candidate
-        })
+    if not row:
+        return "Candidate not found", 404
     
-    return jsonify({
-        'success': False,
-        'error': 'Candidate not found'
-    }), 404
+    candidate = dict(row)
+    candidate['skills'] = json.loads(candidate['skills']) if candidate['skills'] else []
+    
+    return render_template('analytics.html', candidate=candidate)
 
 @app.route('/api/latest-candidate', methods=['GET'])
 def get_latest_candidate():
