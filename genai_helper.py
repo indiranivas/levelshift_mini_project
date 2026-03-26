@@ -185,11 +185,37 @@ User Question: {question}
 
 Respond ONLY with valid JSON, no other text."""
     
+    default_filters = '{"search_keywords": "", "experience_min": 0, "experience_max": 999, "status_filter": "All", "match_score_min": 0, "limit": 10}'
+
     if not GOOGLE_API_KEY or os.getenv('DISABLE_GENAI', '0').lower() in ('1', 'true', 'yes'):
         # Fallback: return default filters
-        return '{"search_keywords": "", "experience_min": 0, "experience_max": 999, "status_filter": "All", "match_score_min": 0, "limit": 10}'
-    
-    return call_gemini(prompt)
+        return default_filters
+
+    response = call_gemini(prompt)
+
+    # Ensure the response is valid JSON string for parser in app.py
+    if not response or not response.strip():
+        print('interpret_candidate_query: received empty response from GenAI, using defaults')
+        return default_filters
+
+    try:
+        import ast, json
+        # validate parsing (allow both JSON and Python-style dicts)
+        parsed = ast.literal_eval(response) if response.strip().startswith('{') else json.loads(response)
+        if isinstance(parsed, dict):
+            # normalize output to compact JSON string
+            return json.dumps({
+                'search_keywords': parsed.get('search_keywords', ''),
+                'experience_min': int(parsed.get('experience_min', 0)),
+                'experience_max': int(parsed.get('experience_max', 999)),
+                'status_filter': parsed.get('status_filter', 'All'),
+                'match_score_min': int(parsed.get('match_score_min', 0)),
+                'limit': int(parsed.get('limit', 10))
+            })
+    except Exception as e:
+        print(f'interpret_candidate_query: GenAI response parse failed: {e}. Using defaults. Raw: {response}')
+
+    return default_filters
 
 def format_candidate_data_response(question: str, candidates_data: str, db_schema: str = "") -> str:
     """Uses GenAI to format raw candidate data into a comprehensive answer."""
