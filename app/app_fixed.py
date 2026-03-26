@@ -370,7 +370,7 @@ def ai_chat():
                 import ast
                 query_params = ast.literal_eval(interpretation_json) if interpretation_json.startswith('{') else json.loads(interpretation_json)
             except Exception as parse_error:
-                print(f"Failed to parse GenAI interpretation: {parse_error}. Using defaults.")
+                logger.warning(f"Failed to parse GenAI interpretation: {parse_error}. Using defaults.")
                 # Fallback to default params if parsing fails
                 query_params = {
                     'search_keywords': '',
@@ -410,11 +410,11 @@ def ai_chat():
             
             # Step 3: Use GenAI to format a comprehensive response
             result = genai_helper.format_candidate_data_response(question, candidates_text, db_schema)
-            print(f"Successfully processed candidate query")
+            logger.info(f"Successfully processed candidate query")
             return jsonify({'success': True, 'answer': result, 'candidates_count': len(candidates)})
             
         except Exception as e:
-            print(f"Error in enhanced candidate query: {e}", exc_info=True)
+            logger.error(f"Error in enhanced candidate query: {e}", exc_info=True)
             # Fallback to basic RAG if enhanced process fails
             pass
     
@@ -440,7 +440,7 @@ def ai_chat():
         
         context = context + db_context
     except Exception as e:
-        print(f"Error fetching RAG candidates for chat context: {e}")
+        logger.error(f"Error fetching RAG candidates for chat context: {e}")
         # Continue without DB context if it fails so the chat still works
 
     result = genai_helper.answer_hiring_question(question, context)
@@ -673,23 +673,6 @@ def get_latest_candidate():
         'candidate': latest
     })
 
-@app.route('/api/candidate/<candidate_id>', methods=['GET'])
-def get_candidate(candidate_id):
-    """Get a specific candidate by ID."""
-    db = get_db()
-    row = db.execute('SELECT * FROM candidates WHERE id = ?', (candidate_id,)).fetchone()
-
-    if not row:
-        return jsonify({'success': False, 'error': 'Candidate not found'}), 404
-
-    candidate = dict(row)
-    candidate['skills'] = json.loads(candidate['skills']) if candidate['skills'] else []
-
-    return jsonify({
-        'success': True,
-        'candidate': candidate
-    })
-
 @app.route('/api/shortlist', methods=['POST'])
 def shortlist_candidate():
     """Shortlist a candidate."""
@@ -735,18 +718,18 @@ def not_found(error):
 
 @app.errorhandler(500)
 def internal_error(error):
-    print(f"Internal server error: {error}")
+    logger.error(f"Internal server error: {error}")
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    print("=" * 60)
-    print("Starting AI Smart Hiring Platform...")
-    print(f"Environment: {app.config.get('ENV', 'production')}")
-    print(f"Debug mode: {app.debug}")
-    print(f"Database: {DATABASE}")
-    print(f"Upload folder: {UPLOAD_FOLDER}")
-    print(f"Models loaded: Ensemble={ensemble_model is not None}, TF-IDF={tfidf_vectorizer is not None}, Scaler={standard_scaler is not None}")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Starting AI Smart Hiring Platform...")
+    logger.info(f"Environment: {app.config.get('ENV', 'production')}")
+    logger.info(f"Debug mode: {app.debug}")
+    logger.info(f"Database: {DATABASE}")
+    logger.info(f"Upload folder: {UPLOAD_FOLDER}")
+    logger.info(f"Models loaded: Ensemble={ensemble_model is not None}, TF-IDF={tfidf_vectorizer is not None}, Scaler={standard_scaler is not None}")
+    logger.info("=" * 60)
     
     # Use debug from config, not hardcoded
     app.run(debug=app.debug, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
