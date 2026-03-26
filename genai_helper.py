@@ -7,6 +7,7 @@ Handles rate limiting, model fallback, and missing API key gracefully.
 
 import os
 import time
+import logging
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
