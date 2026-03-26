@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 
 # Get API key from environment variable (secure for production)
-GOOGLE_API_KEY =  "AIzaSyDE5RBozF3Y6Dt6mbrVBlvmZfV9V36zdyM"        #os.getenv('GOOGLE_API_KEY', '')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
 
 if not GOOGLE_API_KEY:
     print("WARNING: GOOGLE_API_KEY environment variable not set. GenAI features will use fallback responses.")
