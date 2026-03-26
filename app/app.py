@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import logging
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
@@ -11,11 +12,21 @@ import sqlite3
 import uuid
 from flask import g
 import regex as re
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 # Add parent directory and app module path to path for imports
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 APP_PATH = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, ROOT_PATH)
 sys.path.insert(0, APP_PATH)
+
+# Import configuration
+from config import get_config
 
 from data.data_processing import preprocess_data
 from nlp.nlp_pipeline import NLPPipeline, extract_skills, extract_experience
@@ -24,21 +35,35 @@ from sklearn.metrics.pairwise import cosine_similarity
 import genai_helper
 import rag_engine
 
-# Initialize Flask app
+# Initialize Flask app with config
 app = Flask(__name__, template_folder='templates')
-app.secret_key = 'your-secret-key-here'
+app.config.from_object(get_config())
+
+# Security: Add security headers
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains' if app.config['SESSION_COOKIE_SECURE'] else ''
+    return response
+
+logger.info(f"Flask app initialized with config: {app.config.get('ENV', 'production')}")
+logger.info(f"Debug mode: {app.debug}")
 
 # Configuration
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'uploads')
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
+UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
+ALLOWED_EXTENSIONS = app.config['ALLOWED_EXTENSIONS']
+app.config['MAX_CONTENT_LENGTH'] = app.config['MAX_CONTENT_LENGTH']
 
 # Create upload folder if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+logger.info(f"Upload folder configured: {UPLOAD_FOLDER}")
 
 # Database Setup
-DATABASE = os.path.join(os.path.dirname(__file__), '..', 'hiring.db')
+DATABASE = app.config['DATABASE']
+logger.info(f"Database configured: {DATABASE}")
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -77,36 +102,35 @@ init_db()
     
 # Load pre-trained models
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models')
-# Load models with ensemble fallback
 ensemble_model = None
 primary_model = None
 
 try:
     ensemble_model = joblib.load(os.path.join(MODEL_PATH, 'ensemble_model.pkl'))
     primary_model = ensemble_model
-    print("Ensemble model loaded successfully")
+    logger.info("Ensemble model loaded successfully")
 except Exception as e:
-    print(f"Warning: Could not load ensemble model: {e}")
+    logger.warning(f"Could not load ensemble model: {e}")
 
 if primary_model is None:
     try:
         primary_model = joblib.load(os.path.join(MODEL_PATH, 'logistic_regression_model.pkl'))
-        print("Fallback: Logistic Regression model loaded successfully")
+        logger.info("Fallback: Logistic Regression model loaded successfully")
     except Exception as e:
-        print(f"Warning: Could not load logistic regression model: {e}")
+        logger.warning(f"Could not load logistic regression model: {e}")
 
 try:
     tfidf_vectorizer = joblib.load(os.path.join(MODEL_PATH, 'tfidf_vectorizer.pkl'))
-    print("TF-IDF vectorizer loaded successfully")
+    logger.info("TF-IDF vectorizer loaded successfully")
 except Exception as e:
-    print(f"Warning: Could not load TF-IDF vectorizer: {e}")
+    logger.warning(f"Could not load TF-IDF vectorizer: {e}")
     tfidf_vectorizer = None
 
 try:
     standard_scaler = joblib.load(os.path.join(MODEL_PATH, 'standard_scaler.pkl'))
-    print("Standard Scaler loaded successfully")
+    logger.info("Standard Scaler loaded successfully")
 except Exception as e:
-    print(f"Warning: Could not load Standard Scaler: {e}")
+    logger.warning(f"Could not load Standard Scaler: {e}")
     standard_scaler = None
 
 rf_model = primary_model  # legacy variable name used in prediction path
@@ -323,23 +347,30 @@ def ai_chat():
     context = data.get('context', '')
     
     if not question:
+        logger.warning("Chat request received without question")
         return jsonify({'success': False, 'error': 'Question required'}), 400
     
-    # Detect if user is asking about candidates (contains keywords like "candidate", "show", "list", etc.)
+    logger.info(f"Processing chat question: {question[:100]}...")
+    
+    # Detect if user is asking about candidates
     candidate_keywords = ['candidate', 'candidates', 'who', 'which', 'show me', 'list', 'find', 'search', 'filter', 'skill', 'experience']
     is_candidate_query = any(keyword in question.lower() for keyword in candidate_keywords)
     
     if is_candidate_query:
         # Two-step process for candidate queries
         try:
+            # Get database schema
+            db_schema = rag_engine.get_database_schema()
+            
             # Step 1: Use GenAI to interpret what candidate data is needed
-            interpretation_json = genai_helper.interpret_candidate_query(question)
+            interpretation_json = genai_helper.interpret_candidate_query(question, db_schema)
             
             # Parse the JSON response
             try:
                 import ast
                 query_params = ast.literal_eval(interpretation_json) if interpretation_json.startswith('{') else json.loads(interpretation_json)
-            except:
+            except Exception as parse_error:
+                logger.warning(f"Failed to parse GenAI interpretation: {parse_error}. Using defaults.")
                 # Fallback to default params if parsing fails
                 query_params = {
                     'search_keywords': '',
@@ -360,6 +391,8 @@ def ai_chat():
                 limit=int(query_params.get('limit', 10))
             )
             
+            logger.info(f"RAG search returned {len(candidates)} candidates")
+            
             # Format candidate data for display
             if candidates:
                 candidates_text = "CANDIDATES FOUND:\n\n"
@@ -377,11 +410,12 @@ def ai_chat():
                 candidates_text = "No candidates found matching your criteria."
             
             # Step 3: Use GenAI to format a comprehensive response
-            result = genai_helper.format_candidate_data_response(question, candidates_text)
+            result = genai_helper.format_candidate_data_response(question, candidates_text, db_schema)
+            logger.info(f"Successfully processed candidate query")
             return jsonify({'success': True, 'answer': result, 'candidates_count': len(candidates)})
             
         except Exception as e:
-            print(f"Error in enhanced candidate query: {e}")
+            logger.error(f"Error in enhanced candidate query: {e}", exc_info=True)
             # Fallback to basic RAG if enhanced process fails
             pass
     
@@ -403,11 +437,11 @@ def ai_chat():
                     except json.JSONDecodeError:
                         pass
                 
-                db_context += f"- Name: {r['name']}, Role: {r['title']}, Exp: {r['experience']} yrs, Match Score: {r['match_score']}%, Status: {r['prediction']}, Explicitly Shortlisted: {shortlisted}, Skills: {skills_str}\n"
+                db_context += f"- Name: {r['name']}, Role: {r['title']}, Exp: {r['experience']} yrs, Match Score: {r['match_score']}%, Status: {r['prediction']}, Shortlisted: {shortlisted}, Skills: {skills_str}\n"
         
         context = context + db_context
     except Exception as e:
-        print("Error fetching RAG candidates for chat context:", e)
+        logger.error(f"Error fetching RAG candidates for chat context: {e}")
         # Continue without DB context if it fails so the chat still works
 
     result = genai_helper.answer_hiring_question(question, context)
@@ -685,10 +719,18 @@ def not_found(error):
 
 @app.errorhandler(500)
 def internal_error(error):
+    logger.error(f"Internal server error: {error}")
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    print("Starting AI Smart Hiring Platform...")
-    print(f"Flask app running on http://localhost:5000")
-    print(f"Upload folder: {UPLOAD_FOLDER}")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    logger.info("=" * 60)
+    logger.info("Starting AI Smart Hiring Platform...")
+    logger.info(f"Environment: {app.config.get('ENV', 'production')}")
+    logger.info(f"Debug mode: {app.debug}")
+    logger.info(f"Database: {DATABASE}")
+    logger.info(f"Upload folder: {UPLOAD_FOLDER}")
+    logger.info(f"Models loaded: Ensemble={ensemble_model is not None}, TF-IDF={tfidf_vectorizer is not None}, Scaler={standard_scaler is not None}")
+    logger.info("=" * 60)
+    
+    # Use debug from config, not hardcoded
+    app.run(debug=app.debug, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))

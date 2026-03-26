@@ -13,7 +13,9 @@ faiss-cpu
 chromadb
 joblib
 openai
+google-genai
 python-dotenv
 PyPDF2
 werkzeug
 python-dateutil
+gunicorn
