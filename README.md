@@ -311,8 +311,9 @@ MIT License - See LICENSE file for details
 
 ## 👥 Contributors
 
-- Development Team @ LevelShift AI Lab
+- Development Team @LevelShift
+- 
 
 ## 📧 Support
 
-For issues or questions, please contact support@levelshift-ai.com
+For issues or questions, please contact indiranivas1234@gmail.com
