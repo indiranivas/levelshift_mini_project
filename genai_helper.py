@@ -7,19 +7,15 @@ Handles rate limiting, model fallback, and missing API key gracefully.
 
 import os
 import time
-import logging
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
-
-# Setup logging
-logger = logging.getLogger(__name__)
 
 # Get API key from environment variable (secure for production)
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
 
 if not GOOGLE_API_KEY:
-    logger.warning("GOOGLE_API_KEY environment variable not set. GenAI features will use fallback responses.")
+    print("WARNING: GOOGLE_API_KEY environment variable not set. GenAI features will use fallback responses.")
 
 # Models to try in order (most capable → most available)
 _MODELS = [
@@ -40,7 +36,7 @@ def call_gemini(prompt: str, retries: int = 2) -> str:
     Returns the response text, or a fallback string on failure.
     """
     if not GOOGLE_API_KEY:
-        logger.info("GenAI API key not configured, using fallback response")
+        print("INFO: GenAI API key not configured, using fallback response")
         return (
             "_GenAI service is not configured. Please set GOOGLE_API_KEY environment variable._\n\n"
             "**Fallback Response:** This candidate demonstrates relevant qualifications based on available data. "
@@ -50,10 +46,10 @@ def call_gemini(prompt: str, retries: int = 2) -> str:
     try:
         client = _get_client()
     except ImportError as e:
-        logger.error(f"google-genai package not installed: {e}")
+        print(f"ERROR: google-genai package not installed: {e}")
         return "_google-genai package not installed. GenAI features unavailable._"
     except Exception as e:
-        logger.error(f"Failed to initialize GenAI client: {e}")
+        print(f"ERROR: Failed to initialize GenAI client: {e}")
         return f"_GenAI service unavailable: {type(e).__name__}_"
 
     last_error = None
@@ -64,35 +60,35 @@ def call_gemini(prompt: str, retries: int = 2) -> str:
                     model=model,
                     contents=prompt
                 )
-                logger.debug(f"Successfully called GenAI with model {model}")
+                print(f"DEBUG: Successfully called GenAI with model {model}")
                 return response.text
             except Exception as e:
                 err_str = str(e)
-                logger.warning(f"GenAI call failed for {model} (attempt {attempt + 1}): {err_str}")
+                print(f"GenAI call failed for {model} (attempt {attempt + 1}): {err_str}")
                 
                 if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                     # Rate limited — wait and retry once, then try next model
                     if attempt < retries:
                         wait = 3
-                        logger.info(f"Rate limited, waiting {wait}s before retry...")
+                        print(f"INFO: Rate limited, waiting {wait}s before retry...")
                         time.sleep(wait)
                     else:
                         last_error = e
                         break  # try next model
                 elif "404" in err_str or "not found" in err_str.lower():
-                    logger.debug(f"Model {model} not found, trying next...")
+                    print(f"DEBUG: Model {model} not found, trying next...")
                     last_error = e
                     break  # model doesn't exist, try next
                 elif "403" in err_str or "PERMISSION_DENIED" in err_str:
-                    logger.error(f"GenAI API authentication failed: {err_str}")
+                    print(f"ERROR: GenAI API authentication failed: {err_str}")
                     return f"**GenAI Error:** API authentication failed. Please verify your API key configuration."
                 else:
-                    logger.error(f"GenAI API error: {err_str}")
+                    print(f"ERROR: GenAI API error: {err_str}")
                     last_error = e
                     break
 
     # If it completely fails, return fallback
-    logger.error(f"All GenAI models failed. Last error: {last_error}")
+    print(f"ERROR: All GenAI models failed. Last error: {last_error}")
     return f"_GenAI service temporarily unavailable. Using fallback response._"
 
 
