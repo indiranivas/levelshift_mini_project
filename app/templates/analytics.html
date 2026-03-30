@@ -212,7 +212,7 @@
 
         const container = document.getElementById('analytics-container');
         const matchScore = candidate.match_score || Math.round(Math.random() * 40) + 60;
-        const experience = candidate.experience || 5;
+        const experience = candidate.experience !== null && candidate.experience !== undefined ? parseFloat(candidate.experience).toFixed(1) : 'N/A';
         
         container.innerHTML = `
             <!-- Candidate Hero Section -->
@@ -231,7 +231,7 @@
                     </div>
                     <div>
                         <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">${candidate.name || 'Candidate'}</h2>
-                        <p class="text-lg text-slate-600 dark:text-slate-400 font-medium mt-1">${candidate.title || 'Professional'} • ${experience}+ Years Experience</p>
+                        <p class="text-lg text-slate-600 dark:text-slate-400 font-medium mt-1">${candidate.title || 'Professional'} • ${experience !== 'N/A' ? experience + ' Years Experience' : 'Experience Not Specified'}</p>
                         <div class="flex items-center space-x-4 mt-3">
                             <span class="flex items-center text-sm text-slate-600 dark:text-slate-400">
                                 <span class="material-symbols-outlined text-sm mr-1">location_on</span>
@@ -279,8 +279,8 @@
                         <div>
                             <p class="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">Total Experience</p>
                             <div class="flex items-baseline space-x-2">
-                                <span class="text-4xl font-black text-slate-900 dark:text-white">${experience}</span>
-                                <span class="text-lg text-slate-600 dark:text-slate-400">Years</span>
+                                <span class="text-4xl font-black text-slate-900 dark:text-white">${experience !== 'N/A' ? experience : '—'}</span>
+                                <span class="text-lg text-slate-600 dark:text-slate-400">${experience !== 'N/A' ? 'Years' : ''}</span>
                             </div>
                         </div>
                         <div>
@@ -498,7 +498,7 @@
 
     <div class="grid">
       <div class="stat"><div class="stat-value">${c.match_score || 0}%</div><div class="stat-label">Match Score</div></div>
-      <div class="stat"><div class="stat-value">${c.experience || 0}</div><div class="stat-label">Yrs. Experience</div></div>
+      <div class="stat"><div class="stat-value">${c.experience !== null && c.experience !== undefined ? parseFloat(c.experience).toFixed(1) : 'N/A'}</div><div class="stat-label">Yrs. Experience</div></div>
       <div class="stat"><div class="stat-value">30</div><div class="stat-label">Notice (Days)</div></div>
     </div>
 
@@ -589,7 +589,7 @@
         const candidateContext = `You are answering questions about a specific job candidate. Here are their details:
 - Name: ${candidate.name || 'Unknown'}
 - Title: ${candidate.title || 'Professional'}
-- Experience: ${candidate.experience || 0} years
+- Experience: ${candidate.experience !== null && candidate.experience !== undefined ? candidate.experience + ' years' : 'Not specified'}
 - Email: ${candidate.email || 'N/A'}
 - Match Score: ${candidate.match_score || 0}%
 - Prediction: ${candidate.prediction || 'Pending'}
