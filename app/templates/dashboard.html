@@ -7,176 +7,479 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
         body { font-family: 'Inter', sans-serif; }
         h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .sidebar-responsive { transition: all 0.3s ease; }
+        @media (max-width: 768px) {
+            .sidebar-responsive { position: fixed; left: -16rem; top: 0; }
+            .sidebar-responsive.active { left: 0; }
+        }
+        .metric-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .metric-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-<!-- Sidebar Navigation -->
-<nav class="fixed left-0 top-0 h-full flex flex-col p-4 space-y-2 bg-slate-100/50 dark:bg-slate-900/50 w-64 z-50">
-    <div class="mb-8 px-2">
-        <h1 class="text-lg font-black text-blue-800 dark:text-blue-300">Recruiter Portal</h1>
-        <p class="text-xs text-slate-500 font-body">Automated Screening</p>
-    </div>
-    <div class="space-y-1 flex-1">
-        <a class="flex items-center gap-3 px-3 py-2 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 rounded-lg shadow-sm font-bold" href="/">
-            <span class="material-symbols-outlined">dashboard</span>
-            <span class="text-sm font-semibold">Dashboard</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/candidates">
-            <span class="material-symbols-outlined">group</span>
-            <span class="text-sm font-semibold">All Candidates</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/upload">
-            <span class="material-symbols-outlined">cloud_upload</span>
-            <span class="text-sm font-semibold">Upload Resume</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/analytics">
-            <span class="material-symbols-outlined">analytics</span>
-            <span class="text-sm font-semibold">Analytics</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/chatbot">
-            <span class="material-symbols-outlined">forum</span>
-            <span class="text-sm font-semibold">HR Policy Chatbot</span>
-        </a>
-    </div>
-    <div class="pt-4 mt-auto border-t border-slate-200/50 dark:border-slate-800/50 space-y-1">
-        <a href="/upload" class="w-full flex items-center justify-center gap-2 py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-bold shadow-sm hover:opacity-90 transition-opacity">
-            <span class="material-symbols-outlined text-sm">add</span>
-            <span class="text-xs">New Job Posting</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="#">
-            <span class="material-symbols-outlined">help</span>
-            <span class="text-sm font-semibold">Help Center</span>
-        </a>
-    </div>
-</nav>
+    <!-- Mobile Sidebar Toggle -->
+    <button id="sidebarToggle" class="md:hidden fixed bottom-6 right-6 z-50 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700">
+        <span class="material-symbols-outlined text-2xl">menu</span>
+    </button>
 
-<!-- Main Content Area -->
-<main class="ml-64 min-h-screen">
-    <!-- Top App Bar -->
-    <header class="flex justify-between items-center w-full px-6 py-3 bg-white dark:bg-slate-900 sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800">
-        <div class="flex items-center flex-1 max-w-xl">
-            <div class="relative w-full">
-                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                <input class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500 placeholder:text-slate-500" placeholder="Search candidates..." type="text">
-            </div>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar-responsive fixed left-0 top-0 h-screen flex flex-col p-4 space-y-2 bg-slate-100/50 dark:bg-slate-900/50 w-64 z-40 overflow-y-auto">
+        <div class="mb-8 px-2">
+            <h1 class="text-lg font-black text-blue-800 dark:text-blue-300">Recruiter Portal</h1>
+            <p class="text-xs text-slate-500">AI Screening</p>
         </div>
-        <div class="flex items-center gap-4 ml-6">
-            <button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors">
-                <span class="material-symbols-outlined">notifications</span>
-            </button>
-            <button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors">
-                <span class="material-symbols-outlined">settings</span>
-            </button>
+        <div class="space-y-1 flex-1">
+            <a class="flex items-center gap-3 px-3 py-2 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 rounded-lg shadow-sm font-bold" href="/">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span class="text-sm font-semibold">Dashboard</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/candidates">
+                <span class="material-symbols-outlined">group</span>
+                <span class="text-sm font-semibold">Candidates</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/upload">
+                <span class="material-symbols-outlined">cloud_upload</span>
+                <span class="text-sm font-semibold">Upload</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/analytics">
+                <span class="material-symbols-outlined">analytics</span>
+                <span class="text-sm font-semibold">Analytics</span>
+            </a>
+            <a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all" href="/chatbot">
+                <span class="material-symbols-outlined">forum</span>
+                <span class="text-sm font-semibold">Chatbot</span>
+            </a>
         </div>
-    </header>
-
-    <!-- Dashboard Canvas -->
-    <div class="p-8 space-y-10">
-        <!-- Header Section -->
-        <section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-                <h2 class="text-3xl font-extrabold">Recruitment Overview</h2>
-                <p class="text-slate-500 mt-1">AI-driven analysis for the current hiring cycle</p>
-            </div>
-            <div class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center gap-2">
-                <span class="text-xs font-bold uppercase text-slate-500">Status:</span>
-                <span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded">Active Cycle</span>
-            </div>
-        </section>
-
-        <!-- Key Metrics Bento Grid -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Total Candidates -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-600">
-                        <span class="material-symbols-outlined">groups</span>
-                    </div>
-                    <span class="text-xs font-bold text-green-600">+12% from last week</span>
-                </div>
-                <p class="text-slate-500 text-sm">Total Candidates</p>
-                <h3 class="text-4xl font-extrabold mt-1" id="total-candidates">0</h3>
-            </div>
-
-            <!-- Shortlisted -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border-l-4 border-green-500">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg text-green-700">
-                        <span class="material-symbols-outlined">check_circle</span>
-                    </div>
-                </div>
-                <p class="text-slate-500 text-sm">Shortlisted</p>
-                <h3 class="text-4xl font-extrabold mt-1" id="shortlisted-count">0</h3>
-                <div class="mt-4 h-1 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div class="h-full bg-green-500 w-[35%]"></div>
-                </div>
-            </div>
-
-            <!-- Rejected -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border-l-4 border-red-400">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="p-2 bg-red-100 dark:bg-red-900 rounded-lg text-red-600">
-                        <span class="material-symbols-outlined">cancel</span>
-                    </div>
-                </div>
-                <p class="text-slate-500 text-sm">Pending Review</p>
-                <h3 class="text-4xl font-extrabold mt-1" id="pending-count">0</h3>
-            </div>
-        </section>
-
-        <!-- Recent Applications -->
-        <div class="space-y-6">
-            <div class="flex items-center justify-between">
-                <h3 class="text-xl font-bold">Recent Applications</h3>
-                <button class="text-sm font-bold text-blue-600 hover:underline">View all</button>
-            </div>
-            <div class="space-y-4" id="candidates-list">
-                <p class="text-slate-500 text-center py-8">No candidates yet. Upload resumes to get started!</p>
-            </div>
+        <div class="pt-4 mt-auto border-t border-slate-200/50 dark:border-slate-800/50">
+            <a href="/upload" class="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-bold text-xs hover:opacity-90 transition-opacity">
+                <span class="material-symbols-outlined text-sm">add</span>
+                <span>New Posting</span>
+            </a>
         </div>
-    </div>
-</main>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="md:ml-64 min-h-screen">
+        <!-- Top Bar -->
+        <header class="flex justify-between items-center w-full px-4 md:px-6 py-3 bg-white dark:bg-slate-900 sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800">
+            <div class="flex items-center flex-1 max-w-xl gap-2">
+                <span class="material-symbols-outlined text-slate-400">search</span>
+                <input class="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 placeholder:text-slate-500" placeholder="Search candidates...">
+            </div>
+            <div class="flex items-center gap-2 ml-4">
+                <button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">notifications</span>
+                </button>
+                <button class="p-2 text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+            <!-- Header -->
+            <section>
+                <h2 class="text-2xl md:text-3xl font-extrabold">Recruitment Analytics</h2>
+                <p class="text-slate-500 text-xs md:text-sm mt-1">Real-time insights and performance metrics</p>
+            </section>
+
+            <!-- Filter Bar -->
+            <section class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm flex flex-col md:flex-row gap-3 items-center">
+                <span class="text-sm font-semibold">Filter by:</span>
+                <select class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm border-none">
+                    <option>Last 7 Days</option>
+                    <option>Last 30 Days</option>
+                    <option>Last 90 Days</option>
+                    <option>All Time</option>
+                </select>
+                <select class="px-3 py-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm border-none">
+                    <option>All Status</option>
+                    <option>Shortlisted</option>
+                    <option>Rejected</option>
+                    <option>Pending</option>
+                </select>
+            </section>
+
+            <!-- Main Metrics Grid -->
+            <section class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4">
+                <!-- Total Candidates -->
+                <div class="metric-card bg-white dark:bg-slate-800 p-3 md:p-5 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                            <span class="material-symbols-outlined text-blue-600 text-xl">groups</span>
+                        </div>
+                        <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+12%</span>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold">Total</p>
+                    <h3 class="text-2xl md:text-3xl font-extrabold mt-1" id="metric-total">0</h3>
+                </div>
+
+                <!-- Shortlisted -->
+                <div class="metric-card bg-white dark:bg-slate-800 p-3 md:p-5 rounded-lg shadow-sm border-l-4 border-green-500">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                            <span class="material-symbols-outlined text-green-700 text-xl">check_circle</span>
+                        </div>
+                        <span class="text-xs text-green-600 font-bold">Active</span>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold">Shortlisted</p>
+                    <h3 class="text-2xl md:text-3xl font-extrabold mt-1" id="metric-shortlisted">0</h3>
+                </div>
+
+                <!-- Avg Match Score -->
+                <div class="metric-card bg-white dark:bg-slate-800 p-3 md:p-5 rounded-lg shadow-sm border-l-4 border-purple-500">
+                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg w-fit">
+                        <span class="material-symbols-outlined text-purple-700 text-xl">trending_up</span>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold mt-2">Avg Score</p>
+                    <h3 class="text-2xl md:text-3xl font-extrabold mt-1" id="metric-avg-score">0<span class="text-lg">%</span></h3>
+                </div>
+
+                <!-- Conversion Rate -->
+                <div class="metric-card bg-white dark:bg-slate-800 p-3 md:p-5 rounded-lg shadow-sm border-l-4 border-orange-500">
+                    <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg w-fit">
+                        <span class="material-symbols-outlined text-orange-700 text-xl">percent</span>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold mt-2">Conversion</p>
+                    <h3 class="text-2xl md:text-3xl font-extrabold mt-1" id="metric-conversion">0<span class="text-lg">%</span></h3>
+                </div>
+
+                <!-- Avg Experience -->
+                <div class="metric-card bg-white dark:bg-slate-800 p-3 md:p-5 rounded-lg shadow-sm border-l-4 border-indigo-500">
+                    <div class="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg w-fit">
+                        <span class="material-symbols-outlined text-indigo-700 text-xl">work</span>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold mt-2">Avg Exp</p>
+                    <h3 class="text-2xl md:text-3xl font-extrabold mt-1" id="metric-exp">0<span class="text-lg">yrs</span></h3>
+                </div>
+            </section>
+
+            <!-- Secondary Metrics -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-500 text-sm">Rejection Rate</p>
+                            <h3 class="text-2xl font-bold mt-1" id="metric-rejection">0%</h3>
+                        </div>
+                        <div class="p-3 bg-red-100 dark:bg-red-900 rounded-lg">
+                            <span class="material-symbols-outlined text-red-600 text-2xl">close</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 h-1 bg-slate-200 rounded-full overflow-hidden">
+                        <div id="rejection-bar" class="h-full bg-red-500 w-0"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-500 text-sm">Pending Review</p>
+                            <h3 class="text-2xl font-bold mt-1" id="metric-pending">0</h3>
+                        </div>
+                        <div class="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                            <span class="material-symbols-outlined text-yellow-600 text-2xl">pending</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-500 text-sm">Rejected</p>
+                            <h3 class="text-2xl font-bold mt-1" id="metric-rejected">0</h3>
+                        </div>
+                        <div class="p-3 bg-pink-100 dark:bg-pink-900 rounded-lg">
+                            <span class="material-symbols-outlined text-pink-600 text-2xl">person_off</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Grid -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
+                <!-- Hiring Funnel -->
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-bold mb-4">Hiring Funnel</h3>
+                    <div style="height: 250px;">
+                        <canvas id="funnelChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Prediction Breakdown -->
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-bold mb-4">Status Breakdown</h3>
+                    <div style="height: 250px;">
+                        <canvas id="predictionChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Match Score Distribution -->
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-bold mb-4">Score Distribution</h3>
+                    <div style="height: 250px;">
+                        <canvas id="matchScoreChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Experience vs Score -->
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-bold mb-4">Experience Impact</h3>
+                    <div style="height: 250px;">
+                        <canvas id="experienceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- App Timeline -->
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm lg:col-span-2">
+                    <h3 class="text-base md:text-lg font-bold mb-4">Application Trend (7 Days)</h3>
+                    <div style="height: 250px;">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Skills & Quality Analysis -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
+                <!-- Top Skills -->
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-bold mb-4">Top Skills</h3>
+                    <div id="skills-list" class="space-y-2">
+                        <p class="text-slate-500 text-sm">Loading...</p>
+                    </div>
+                </div>
+
+                <!-- Score Range Breakdown -->
+                <div class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-base md:text-lg font-bold mb-4">Quality Analysis</h3>
+                    <div id="score-ranges" class="space-y-3">
+                        <p class="text-slate-500 text-sm">Loading...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Applications -->
+            <section class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+                    <h3 class="text-base md:text-lg font-bold">Recent Candidates</h3>
+                    <a href="/candidates" class="text-sm font-bold text-blue-600 hover:underline mt-2 md:mt-0">View all →</a>
+                </div>
+                <div class="space-y-2 md:space-y-3" id="candidates-list">
+                    <p class="text-slate-500 text-sm text-center py-6">Upload resumes to see candidates</p>
+                </div>
+            </section>
+        </div>
+    </main>
 
 <script>
-    // Load dashboard data
-    document.addEventListener('DOMContentLoaded', function() {
-        fetch('/api/dashboard-stats')
-            .then(r => r.json())
-            .then(data => {
-                document.getElementById('total-candidates').textContent = data.total || 0;
-                document.getElementById('shortlisted-count').textContent = data.shortlisted || 0;
-                document.getElementById('pending-count').textContent = data.pending || 0;
-
-                if (data.candidates && data.candidates.length > 0) {
-                    const candidatesList = document.getElementById('candidates-list');
-                    candidatesList.innerHTML = data.candidates.map(c => `
-                        <a href="/analytics?id=${c.id}" class="bg-white dark:bg-slate-800 p-5 rounded-xl flex items-center gap-6 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer block">
-                            <div class="h-14 w-14 rounded-full bg-blue-200 dark:bg-blue-900 shrink-0 flex items-center justify-center">
-                                <span class="material-symbols-outlined text-blue-600">person</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-lg truncate">${c.name}</h4>
-                                    <span class="px-2 py-0.5 ${c.prediction === 'Shortlisted' ? 'bg-green-100 text-green-700' : (c.prediction === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700')} text-[10px] font-bold rounded uppercase">${c.prediction || 'Pending'}</span>
-                                </div>
-                                <p class="text-sm text-slate-500 truncate">${c.title} • ${c.experience} yrs exp</p>
-                            </div>
-                            <div class="text-right shrink-0">
-                                <div class="text-2xl font-black text-blue-600">${c.score}%</div>
-                                <div class="text-[10px] font-bold text-slate-400 uppercase">Score</div>
-                            </div>
-                        </a>
-                    `).join('');
-                }
-            })
-            .catch(e => console.error('Error loading dashboard:', e));
+    // Mobile sidebar toggle
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.querySelector('.sidebar-responsive');
+    
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
     });
+
+    // Close sidebar when clicking a link on mobile
+    document.querySelectorAll('.sidebar-responsive a').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 768) {
+                sidebar.classList.remove('active');
+            }
+        });
+    });
+
+    const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const textColor = isDark ? '#f1f5f9' : '#0f172a';
+    const gridColor = isDark ? '#334155' : '#f1f5f9';
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: textColor, font: { family: "'Inter', sans-serif", size: 11 } } } },
+        scales: { 
+            x: { ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } }
+        }
+    };
+
+    let charts = {};
+
+    async function loadDashboard() {
+        try {
+            const [stats, prediction, matchScore, timeline, experience, skills, funnel, scoreRange, dashStats] = await Promise.all([
+                fetch('/api/analytics/quality-metrics').then(r => r.json()),
+                fetch('/api/analytics/prediction-breakdown').then(r => r.json()),
+                fetch('/api/analytics/match-score-distribution').then(r => r.json()),
+                fetch('/api/analytics/application-timeline').then(r => r.json()),
+                fetch('/api/analytics/experience-salary-correlation').then(r => r.json()),
+                fetch('/api/analytics/top-skills').then(r => r.json()),
+                fetch('/api/analytics/hiring-funnel').then(r => r.json()),
+                fetch('/api/analytics/score-range-breakdown').then(r => r.json()),
+                fetch('/api/dashboard-stats').then(r => r.json())
+            ]);
+
+            // Update metrics
+            document.getElementById('metric-total').textContent = stats.total_candidates || 0;
+            document.getElementById('metric-shortlisted').textContent = stats.shortlisted || 0;
+            document.getElementById('metric-avg-score').innerHTML = `${Math.round(stats.avg_match_score || 0)}<span class="text-lg">%</span>`;
+            document.getElementById('metric-conversion').innerHTML = `${(stats.conversion_rate || 0).toFixed(1)}<span class="text-lg">%</span>`;
+            document.getElementById('metric-exp').innerHTML = `${(stats.avg_experience_years || 0).toFixed(1)}<span class="text-lg">yrs</span>`;
+            document.getElementById('metric-rejection').textContent = `${(stats.rejection_rate || 0).toFixed(1)}%`;
+            document.getElementById('metric-pending').textContent = stats.pending || 0;
+            document.getElementById('metric-rejected').textContent = stats.rejected || 0;
+            document.getElementById('rejection-bar').style.width = `${stats.rejection_rate || 0}%`;
+
+            // Destroy existing charts
+            Object.values(charts).forEach(chart => { if (chart) chart.destroy(); });
+
+            // Funnel Chart
+            charts.funnel = new Chart(document.getElementById('funnelChart'), {
+                type: 'bar',
+                data: {
+                    labels: funnel.stages,
+                    datasets: [{
+                        label: 'Candidates',
+                        data: funnel.values,
+                        backgroundColor: ['#3b82f6', '#10b981', '#a855f7'],
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: { ...chartOptions, indexAxis: 'y' }
+            });
+
+            // Prediction Chart
+            charts.prediction = new Chart(document.getElementById('predictionChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: prediction.labels,
+                    datasets: [{
+                        data: prediction.data,
+                        backgroundColor: prediction.backgroundColor,
+                        borderColor: isDark ? '#1e293b' : '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                options: { ...chartOptions, plugins: { ...chartOptions.plugins, legend: { position: 'bottom' } } }
+            });
+
+            // Match Score Chart
+            charts.matchScore = new Chart(document.getElementById('matchScoreChart'), {
+                type: 'bar',
+                data: {
+                    labels: matchScore.labels,
+                    datasets: [{
+                        label: 'Candidates',
+                        data: matchScore.data,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    }]
+                },
+                options: { ...chartOptions, plugins: { ...chartOptions.plugins, legend: { display: false } } }
+            });
+
+            // Experience Chart
+            charts.experience = new Chart(document.getElementById('experienceChart'), {
+                type: 'bar',
+                data: {
+                    labels: experience.labels,
+                    datasets: [{
+                        label: 'Avg Score',
+                        data: experience.avg_scores,
+                        backgroundColor: '#a855f7',
+                        borderRadius: 4
+                    }]
+                },
+                options: { ...chartOptions, plugins: { ...chartOptions.plugins, legend: { display: false } } }
+            });
+
+            // Timeline Chart
+            charts.timeline = new Chart(document.getElementById('timelineChart'), {
+                type: 'line',
+                data: {
+                    labels: timeline.labels,
+                    datasets: [{
+                        label: 'Applications',
+                        data: timeline.data,
+                        borderColor: '#3b82f6',
+                        backgroundColor: '#3b82f620',
+                        tension: 0.3,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: chartOptions
+            });
+
+            // Skills
+            const skillsList = document.getElementById('skills-list');
+            skillsList.innerHTML = skills.labels.slice(0, 8).map((skill, i) => `
+                <div class="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                    <span class="text-sm font-medium flex-1">${skill}</span>
+                    <span class="text-xs font-bold text-blue-600 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">${skills.data[i]}</span>
+                </div>
+            `).join('');
+
+            // Score Ranges
+            const scoreRanges = document.getElementById('score-ranges');
+            scoreRanges.innerHTML = scoreRange.data.map(item => `
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium">${item.label}</p>
+                        <div class="mt-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden w-24">
+                            <div class="h-full bg-blue-500" style="width: ${item.percentage}%"></div>
+                        </div>
+                    </div>
+                    <div class="text-right ml-3">
+                        <p class="text-sm font-bold">${item.count}</p>
+                        <p class="text-xs text-slate-500">${item.percentage}%</p>
+                    </div>
+                </div>
+            `).join('');
+
+            // Recent Candidates
+            const candidatesList = document.getElementById('candidates-list');
+            if (dashStats.candidates && dashStats.candidates.length > 0) {
+                candidatesList.innerHTML = dashStats.candidates.map(c => `
+                    <div class="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                        <div class="h-10 w-10 rounded-full bg-blue-200 dark:bg-blue-900 shrink-0 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-blue-600 text-lg">person</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h4 class="font-bold text-sm truncate">${c.name}</h4>
+                                <span class="px-2 py-0.5 text-xs font-bold rounded-full whitespace-nowrap ${
+                                    c.prediction === 'Shortlisted' ? 'bg-green-100 text-green-700' : 
+                                    c.prediction === 'Rejected' ? 'bg-red-100 text-red-700' : 
+                                    'bg-yellow-100 text-yellow-700'
+                                }">${c.prediction || 'Pending'}</span>
+                            </div>
+                            <p class="text-xs text-slate-500 truncate">${c.title} • ${c.experience}y</p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-black text-blue-600">${c.score}%</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            console.error('Dashboard error:', e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+    setInterval(loadDashboard, 30000);
 </script>
 </body>
 </html>
