@@ -8,12 +8,12 @@ import os
 import datetime
 from dateutil import parser as dateparser
 
-# Attempt to download NLTK data silently (works offline if already cached)
-for _pkg in ['stopwords', 'wordnet', 'omw-1.4', 'punkt_tab']:
-    try:
-        nltk.download(_pkg, quiet=True)
-    except Exception:
-        pass  # No internet – use whatever is already installed
+# IMPORTANT:
+# Avoid downloading NLTK data at import-time. This causes network calls during
+# app startup and can lead to noisy logs or slow/failed deployments when
+# internet access is restricted.
+#
+# Provision NLTK resources via `wsgi.py` or `download_nltk_data.py` instead.
 
 try:
     stop_words = set(stopwords.words('english'))

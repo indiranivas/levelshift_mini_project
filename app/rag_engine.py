@@ -10,17 +10,23 @@ import sys
 import json
 import sqlite3
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
+import joblib
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Adjust path so we can import app DB
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hiring.db")
+# IMPORTANT: RAG must use the same DB as Flask (config.py -> DATABASE_PATH env var).
+DB_PATH = os.getenv(
+    "DATABASE_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hiring.db"),
+)
 
 # Global vectorizer and cache
 _VECTORIZER = None
-_EMBEDDINGS_CACHE = {}  # {candidate_id: (candidate_data, tfidf_vector)}
-_LAST_INDEXED_COUNT = 0
+_EMBEDDINGS_CACHE = {}  # {candidate_id: (candidate_data, tfidf_vector_dense)}
+_LAST_INDEXED_TIMESTAMP = 0.0
+
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
 
 
 def _get_db_connection():
@@ -48,63 +54,61 @@ def _generate_candidate_summary(row) -> str:
         f"Match Score: {row['match_score']}%. "
         f"Status: {prediction}. "
         f"Shortlisting: {shortlisted_status}. "
-        f"Resume: {row['resume_text'][:400]}"
+        f"Resume: {(row['resume_text'] or '')[:400]}"
     )
 
 
 def _get_or_create_vectorizer():
-    """Lazy init TF-IDF vectorizer."""
+    """Lazy-load the persisted TF-IDF vectorizer (no refitting)."""
     global _VECTORIZER
     if _VECTORIZER is None:
-        _VECTORIZER = TfidfVectorizer(stop_words='english', max_features=1000)
+        try:
+            _VECTORIZER = joblib.load(os.path.join(MODEL_PATH, "tfidf_vectorizer.pkl"))
+        except Exception as e:
+            print(f"WARNING: Could not load TF-IDF vectorizer for RAG: {e}")
+            _VECTORIZER = None
     return _VECTORIZER
 
 
 def build_or_update_index():
     """
-    Syncs the local TF-IDF cache with the SQLite database.
-    Only processes new candidates; uses a count check to avoid re-processing.
+    Incrementally sync the in-memory RAG cache with the SQLite database.
+
+    Key requirement: do NOT refit TF-IDF vectorizers. We only call
+    `vectorizer.transform(...)` using the persisted vectorizer.
     """
-    global _EMBEDDINGS_CACHE, _LAST_INDEXED_COUNT, _VECTORIZER
+    global _EMBEDDINGS_CACHE, _LAST_INDEXED_TIMESTAMP, _VECTORIZER
 
     try:
+        vectorizer = _get_or_create_vectorizer()
+        if vectorizer is None:
+            return
+
         with _get_db_connection() as conn:
-            row_count = conn.execute("SELECT COUNT(*) FROM candidates").fetchone()[0]
-            if row_count == _LAST_INDEXED_COUNT and _EMBEDDINGS_CACHE:
-                return  # No new candidates
+            rows = conn.execute(
+                "SELECT id, name, title, experience, skills, match_score, resume_text, is_shortlisted, prediction, timestamp "
+                "FROM candidates WHERE timestamp > ? ORDER BY timestamp ASC",
+                (_LAST_INDEXED_TIMESTAMP,),
+            ).fetchall()
 
-            rows = conn.execute("SELECT id, name, title, experience, skills, match_score, resume_text, is_shortlisted, prediction FROM candidates").fetchall()
+        if not rows:
+            return
 
-        new_summaries = []
-        new_candidates = []
+        max_ts = _LAST_INDEXED_TIMESTAMP
         for r in rows:
-            cid = r['id']
-            if cid not in _EMBEDDINGS_CACHE:
-                summary = _generate_candidate_summary(r)
-                new_summaries.append(summary)
-                new_candidates.append((cid, dict(r)))
+            cid = r["id"]
+            max_ts = max(max_ts, float(r["timestamp"] or 0.0))
 
-        if new_summaries:
-            vectorizer = _get_or_create_vectorizer()
-            if len(_EMBEDDINGS_CACHE) == 0:
-                # First time, fit on all
-                all_summaries = new_summaries
-                all_candidates = new_candidates
-            else:
-                # Incremental: refit on all (simple approach)
-                all_summaries = []
-                all_candidates = []
-                for cid, cand_data in _EMBEDDINGS_CACHE.values():
-                    all_summaries.append(_generate_candidate_summary(cand_data))
-                    all_candidates.append((cid, cand_data))
-                all_summaries.extend(new_summaries)
-                all_candidates.extend(new_candidates)
+            # Skip if already cached (safety if timestamps collide).
+            if cid in _EMBEDDINGS_CACHE:
+                continue
 
-            vectors = vectorizer.fit_transform(all_summaries).toarray()
-            for i, (cid, cand_data) in enumerate(all_candidates):
-                _EMBEDDINGS_CACHE[cid] = (cand_data, vectors[i])
+            cand_data = dict(r)
+            summary = _generate_candidate_summary(cand_data)
+            vec = vectorizer.transform([summary]).toarray()[0]
+            _EMBEDDINGS_CACHE[cid] = (cand_data, vec)
 
-        _LAST_INDEXED_COUNT = row_count
+        _LAST_INDEXED_TIMESTAMP = max_ts
     except Exception as e:
         print(f"RAG Index Error: {e}")
 
@@ -207,7 +211,10 @@ def search_candidates_with_filters(keywords: str = "", experience_min: int = 0, 
                     # Search in skills (JSON), name, and title
                     condition_parts = []
                     for kw in keyword_list:
-                        condition_parts.append(f"(LOWER(name) LIKE '%{kw}%' OR LOWER(title) LIKE '%{kw}%' OR LOWER(skills) LIKE '%{kw}%')")
+                        # Parameterized LIKE patterns (prevents SQL injection).
+                        condition_parts.append("(LOWER(name) LIKE ? OR LOWER(title) LIKE ? OR LOWER(skills) LIKE ?)")
+                        pattern = f"%{kw}%"
+                        params.extend([pattern, pattern, pattern])
                     query += " AND (" + " OR ".join(condition_parts) + ")"
             
             query += " ORDER BY match_score DESC LIMIT ?"
