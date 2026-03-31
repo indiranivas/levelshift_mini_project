@@ -138,7 +138,7 @@ def main():
     Main function to train ML models.
     """
     # Load and preprocess data
-    dataset_path = r"c:\Users\indiranivas_s\OneDrive - LevelShift\Documents\mini_project\dataset\Resume\Resume.csv"
+    dataset_path = os.path.join(ROOT, "dataset", "Resume", "Resume.csv")
     df, _ = preprocess_data(dataset_path)
 
     if df is None:

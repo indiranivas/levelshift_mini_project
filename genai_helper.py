@@ -10,6 +10,7 @@ import time
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
+from scipy.sparse import csr_matrix
 
 # Get API key from environment variable (secure for production)
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
@@ -61,7 +62,7 @@ def call_gemini(prompt: str, retries: int = 2) -> str:
                     contents=prompt
                 )
                 print(f"DEBUG: Successfully called GenAI with model {model}")
-                return response.text
+                return response.text or ""
             except Exception as e:
                 err_str = str(e)
                 print(f"GenAI call failed for {model} (attempt {attempt + 1}): {err_str}")
@@ -98,7 +99,8 @@ def _local_text_embedding(text: str) -> list[float]:
         return [0.0] * 768
     try:
         vectorizer = TfidfVectorizer(max_features=768, stop_words='english')
-        arr = vectorizer.fit_transform([text]).toarray()[0]
+        sparse_matrix = csr_matrix(vectorizer.fit_transform([text]))
+        arr = np.asarray(sparse_matrix.toarray()[0], dtype=float)
         if len(arr) < 768:
             padded = np.zeros(768, dtype=float)
             padded[:len(arr)] = arr
@@ -265,7 +267,9 @@ def get_embedding(text: str) -> list[float]:
                 contents=text
             )
             if response.embeddings and len(response.embeddings) > 0:
-                return response.embeddings[0].values
+                embedding_values = response.embeddings[0].values
+                if embedding_values:
+                    return list(embedding_values)
         except Exception as e:
             last_error = e
             err_str = str(e).lower()
