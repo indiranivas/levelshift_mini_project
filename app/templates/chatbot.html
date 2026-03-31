@@ -78,6 +78,11 @@
             </h1>
             <p class="text-xs text-slate-500 font-medium mt-1">Ask me about hiring policies, notice periods, or recruitment guidelines.</p>
         </div>
+        <button id="clear-btn" onclick="clearChat()"
+            class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all">
+            <span class="material-symbols-outlined text-base">delete_sweep</span>
+            Clear Chat
+        </button>
     </header>
 
     <!-- Chat Messages -->
@@ -112,7 +117,8 @@
 </main>
 
 <script>
-    // Context to supply to Gemini for domain-specific answers
+    // ── Constants ────────────────────────────────────────────────
+    const STORAGE_KEY = 'hr_chat_history';
     const HIRING_CONTEXT = `
 TalentAI Solutions Hiring Guidelines (2024 V2.1)
 - Standard notice period is 30 days for junior/mid roles, 60 days for leadership.
@@ -123,94 +129,92 @@ TalentAI Solutions Hiring Guidelines (2024 V2.1)
 - Candidates needing relocation are eligible for up to a $5000 signing bonus (requires Director approval).
 `;
 
-    // Candidate data for making names clickable
+    // ── Candidate name → id map for clickable links ───────────────
     let candidatesMap = new Map();
 
-    // Load candidates for name linking
     function loadCandidates() {
         fetch('/api/candidates')
             .then(r => r.json())
             .then(data => {
                 if (data.candidates) {
-                    data.candidates.forEach(candidate => {
-                        if (candidate.name) {
-                            candidatesMap.set(candidate.name.toLowerCase(), {
-                                id: candidate.id,
-                                originalName: candidate.name
-                            });
-                        }
+                    data.candidates.forEach(c => {
+                        if (c.name) candidatesMap.set(c.name.toLowerCase(), { id: c.id, originalName: c.name });
                     });
                 }
             })
             .catch(e => console.error('Error loading candidates for chat linking:', e));
     }
 
-    // Make candidate names in HTML clickable
     function makeCandidateNamesClickable(html) {
         if (!html) return html;
-        
-        let processedHtml = html;
-        
-        // Process each candidate name
-        candidatesMap.forEach((candidateData, nameKey) => {
-            const candidateId = candidateData.id;
-            const originalName = candidateData.originalName;
-            
-            // Create regex to match the original name (case-insensitive)
+        let out = html;
+        candidatesMap.forEach(({ id, originalName }) => {
             const regex = new RegExp(`\\b(${originalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
-            processedHtml = processedHtml.replace(regex, (match) => {
-                return `<a href="/candidate/${candidateId}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline font-medium" target="_blank">${match}</a>`;
-            });
+            out = out.replace(regex, match =>
+                `<a href="/candidate/${id}" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline font-medium" target="_blank">${match}</a>`
+            );
         });
-        
-        return processedHtml;
+        return out;
     }
 
+    // ── DOM refs ─────────────────────────────────────────────────
     const chatMessages = document.getElementById('chat-messages');
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
+    const chatInput    = document.getElementById('chat-input');
+    const sendBtn      = document.getElementById('send-btn');
 
-    // Load candidates when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        loadCandidates();
-    });
-
-    function handleEnter(e) {
-        if (e.key === 'Enter') sendMessage();
+    // ── sessionStorage helpers ───────────────────────────────────
+    function loadHistory() {
+        try {
+            return JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || [];
+        } catch { return []; }
     }
 
-    function scrollToBottom() {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+    function saveHistory(history) {
+        try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch {}
+    }
+
+    function pushToHistory(role, text) {
+        const history = loadHistory();
+        history.push({ role, text, ts: Date.now() });
+        saveHistory(history);
+    }
+
+    // ── Render helpers ───────────────────────────────────────────
+    function buildUserBubble(text) {
+        return `
+        <div class="flex items-start gap-4 flex-row-reverse">
+            <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex justify-center items-center text-slate-600 dark:text-slate-300 shrink-0 shadow-sm">
+                <span class="material-symbols-outlined">person</span>
+            </div>
+            <div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-sm shadow-sm max-w-[80%] text-sm font-medium">
+                ${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+            </div>
+        </div>`;
+    }
+
+    function buildBotBubble(markdownText, id) {
+        const innerHtml = markdownText
+            ? makeCandidateNamesClickable(marked.parse(markdownText))
+            : `<div class="typing-indicator text-blue-600 items-center flex h-5"><span></span><span></span><span></span></div>`;
+        return `
+        <div class="flex items-start gap-4"${id ? ` id="${id}-container"` : ''}>
+            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex justify-center items-center text-blue-600 shrink-0 shadow-sm">
+                <span class="material-symbols-outlined">smart_toy</span>
+            </div>
+            <div${id ? ` id="${id}"` : ''} class="bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-slate-700 prose dark:prose-invert">
+                ${innerHtml}
+            </div>
+        </div>`;
     }
 
     function appendUserMessage(text) {
-        const msgHtml = `
-            <div class="flex items-start gap-4 flex-row-reverse">
-                <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex justify-center items-center text-slate-600 dark:text-slate-300 shrink-0 shadow-sm">
-                    <span class="material-symbols-outlined">person</span>
-                </div>
-                <div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-sm shadow-sm max-w-[80%] text-sm font-medium">
-                    ${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
-                </div>
-            </div>`;
-        chatMessages.insertAdjacentHTML('beforeend', msgHtml);
+        chatMessages.insertAdjacentHTML('beforeend', buildUserBubble(text));
         scrollToBottom();
     }
 
     function appendBotMessageStart() {
         const id = 'msg-' + Date.now();
-        const msgHtml = `
-            <div class="flex items-start gap-4" id="${id}-container">
-                <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex justify-center items-center text-blue-600 shrink-0 shadow-sm">
-                    <span class="material-symbols-outlined">smart_toy</span>
-                </div>
-                <div id="${id}" class="bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-tl-sm shadow-sm max-w-[80%] text-sm text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-slate-700 prose dark:prose-invert">
-                    <div class="typing-indicator text-blue-600 items-center flex h-5">
-                        <span></span><span></span><span></span>
-                    </div>
-                </div>
-            </div>`;
-        chatMessages.insertAdjacentHTML('beforeend', msgHtml);
+        chatMessages.insertAdjacentHTML('beforeend', buildBotBubble('', id));
         scrollToBottom();
         return id;
     }
@@ -218,50 +222,83 @@ TalentAI Solutions Hiring Guidelines (2024 V2.1)
     function updateBotMessage(id, markdownText) {
         const el = document.getElementById(id);
         if (el) {
-            const parsedHtml = marked.parse(markdownText);
-            el.innerHTML = makeCandidateNamesClickable(parsedHtml);
+            el.innerHTML = makeCandidateNamesClickable(marked.parse(markdownText));
             scrollToBottom();
         }
     }
 
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // ── Restore history from sessionStorage ──────────────────────
+    function restoreHistory() {
+        const history = loadHistory();
+        if (!history.length) return;
+        history.forEach(({ role, text }) => {
+            if (role === 'user') {
+                chatMessages.insertAdjacentHTML('beforeend', buildUserBubble(text));
+            } else {
+                chatMessages.insertAdjacentHTML('beforeend', buildBotBubble(text));
+            }
+        });
+        scrollToBottom();
+    }
+
+    // ── Clear chat ───────────────────────────────────────────────
+    function clearChat() {
+        sessionStorage.removeItem(STORAGE_KEY);
+        // Remove all messages except the static welcome greeting (first child)
+        const children = Array.from(chatMessages.children);
+        children.slice(1).forEach(el => el.remove());
+        scrollToBottom();
+    }
+
+    // ── Send message ─────────────────────────────────────────────
+    function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
+
     function sendMessage() {
         const text = chatInput.value.trim();
         if (!text) return;
-        
+
         chatInput.value = '';
         chatInput.disabled = true;
         sendBtn.disabled = true;
-        
+
         appendUserMessage(text);
+        pushToHistory('user', text);
+
         const botMsgId = appendBotMessageStart();
 
         fetch('/api/ai/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                question: text,
-                context: HIRING_CONTEXT
-            })
+            body: JSON.stringify({ question: text, context: HIRING_CONTEXT })
         })
         .then(r => r.json())
         .then(data => {
             chatInput.disabled = false;
             sendBtn.disabled = false;
             chatInput.focus();
-            
-            if (data.success) {
-                updateBotMessage(botMsgId, data.answer);
-            } else {
-                updateBotMessage(botMsgId, `*Error: ${data.error}*`);
-            }
+            const answer = data.success ? data.answer : `*Error: ${data.error}*`;
+            updateBotMessage(botMsgId, answer);
+            pushToHistory('bot', answer);
         })
         .catch(e => {
             console.error(e);
             chatInput.disabled = false;
             sendBtn.disabled = false;
-            updateBotMessage(botMsgId, "*Network error connecting to AI service.*");
+            const errMsg = '*Network error connecting to AI service.*';
+            updateBotMessage(botMsgId, errMsg);
+            pushToHistory('bot', errMsg);
         });
     }
+
+    // ── Init ─────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        loadCandidates();
+        restoreHistory();
+    });
 </script>
 </body>
 </html>
