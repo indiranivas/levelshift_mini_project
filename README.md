@@ -2,6 +2,8 @@
 
 A complete end-to-end AI/ML + NLP + GenAI system that automates recruitment through intelligent resume parsing, candidate-job matching, scoring, and a interactive web interface.
 
+![AI Smart Hiring Platform](project-banner.png)
+
 ## 🎯 Overview
 
 This platform combines machine learning, natural language processing, and modern web technologies to streamline the hiring process. It analyzes resumes, matches candidates to job descriptions, extracts skills, and provides AI-powered insights for recruiters.
